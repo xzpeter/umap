@@ -122,20 +122,21 @@ PageDescriptor* Buffer::evict_oldest_page()
 
   void Buffer::flush_dirty_pages()
   {
+    UMAP_LOG(Info, "1 m_busy_pages.size()="<<m_busy_pages.size());
+    m_rm.get_evict_manager()->WaitAll();
+    UMAP_LOG(Info, "2 m_busy_pages.size()="<<m_busy_pages.size());
     lock();
 
     for (auto it = m_busy_pages.begin(); it != m_busy_pages.end(); it++) {
-      
-      if ( (*it)->dirty ) {
+      if ( (*it)->dirty &&  !(*it)->deferred) {
 	PageDescriptor* pd = *it;
-	UMAP_LOG(Debug, "schedule Dirty Page: " << pd);
-	wait_for_page_state(pd, PageDescriptor::State::PRESENT);
+	//wait_for_page_state(pd, PageDescriptor::State::PRESENT);
 	m_rm.get_evict_manager()->schedule_flush(pd);
       }
     }
-
+    UMAP_LOG(Info, "3 m_busy_pages.size()="<<m_busy_pages.size());
     m_rm.get_evict_manager()->WaitAll();
-    
+    UMAP_LOG(Info, "4 m_busy_pages.size()="<<m_busy_pages.size());
     unlock();
   }
   
