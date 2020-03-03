@@ -44,6 +44,13 @@ class WorkQueue {
       pthread_mutex_unlock(&m_mutex);
     }
 
+    void enqueueM(std::vector<T> item_list) {
+      pthread_mutex_lock(&m_mutex);
+      m_queue.insert(m_queue.end(), item_list.begin(), item_list.end());
+      pthread_cond_signal(&m_cond);
+      pthread_mutex_unlock(&m_mutex);
+    }
+
     T dequeue() {
       pthread_mutex_lock(&m_mutex);
 

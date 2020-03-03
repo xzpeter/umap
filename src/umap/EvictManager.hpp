@@ -23,6 +23,7 @@ namespace Umap {
       ~EvictManager( void );
       void schedule_eviction(PageDescriptor* pd);
       void schedule_flush(PageDescriptor* pd);
+      void schedule_flush(std::vector<PageDescriptor*> pd_list);
       void EvictAll( void );
       void WaitAll( void );
 

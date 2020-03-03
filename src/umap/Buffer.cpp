@@ -15,6 +15,10 @@
 #include "umap/WorkerPool.hpp"
 #include "umap/util/Macros.hpp"
 
+#ifndef FLUSH_SCHEDULE_BATCH
+#define FLUSH_SCHEDULE_BATCH 512
+#endif
+
 namespace Umap {
 //
 // Called after data has been placed into the page
@@ -122,22 +126,54 @@ PageDescriptor* Buffer::evict_oldest_page()
 
   void Buffer::flush_dirty_pages()
   {
-    UMAP_LOG(Info, "1 m_busy_pages.size()="<<m_busy_pages.size());
-    m_rm.get_evict_manager()->WaitAll();
-    UMAP_LOG(Info, "2 m_busy_pages.size()="<<m_busy_pages.size());
+    UMAP_LOG(Debug, "1 m_busy_pages.size()="<<m_busy_pages.size());
+
+    /*Clear all pending evict work items before lock the buffer*/
+    /*because evict work items modify Buffer */
+    if(!low_threshold_reached()){
+      /*When low threshold is not reached*/
+      /*the eviction daemon may or may or have been start yet*/
+      /*depending on if high water water has been met before*/
+      /*proactively kick off the eviction daemon*/
+      WorkItem w;
+      w.type = Umap::WorkItem::WorkType::THRESHOLD;
+      w.page_desc = nullptr;
+      m_rm.get_evict_manager()->send_work(w);
+
+      /* make sure all eviction work items are cleared*/
+      while(!low_threshold_reached())
+	m_rm.get_evict_manager()->WaitAll();
+    }
+    UMAP_LOG(Debug, "2 m_busy_pages.size()="<<m_busy_pages.size()
+	     <<", m_size="<<m_size
+	     <<", m_evict_low_water="<<m_evict_low_water);
+
+    /*Lock Buffer because flush should not modify page queues*/
     lock();
+
+    std::vector<PageDescriptor*> pd_list;
+    pd_list.reserve(FLUSH_SCHEDULE_BATCH);
 
     for (auto it = m_busy_pages.begin(); it != m_busy_pages.end(); it++) {
       if ( (*it)->dirty &&  !(*it)->deferred) {
 	PageDescriptor* pd = *it;
-	//wait_for_page_state(pd, PageDescriptor::State::PRESENT);
-	m_rm.get_evict_manager()->schedule_flush(pd);
+	pd_list.push_back(pd);
+	if(pd_list.size()==FLUSH_SCHEDULE_BATCH){
+	  //write concurrency drops by 100x wo waitall
+	  m_rm.get_evict_manager()->WaitAll();
+	  m_rm.get_evict_manager()->schedule_flush(pd_list);
+	  pd_list.resize(0);
+	}
       }
     }
-    UMAP_LOG(Info, "3 m_busy_pages.size()="<<m_busy_pages.size());
+
+    if(pd_list.size()>0){
+      m_rm.get_evict_manager()->schedule_flush(pd_list);
+    }
     m_rm.get_evict_manager()->WaitAll();
-    UMAP_LOG(Info, "4 m_busy_pages.size()="<<m_busy_pages.size());
+
     unlock();
+
   }
   
 //

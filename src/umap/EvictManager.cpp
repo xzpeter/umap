@@ -78,6 +78,15 @@ void EvictManager::schedule_flush(PageDescriptor* pd)
   m_evict_workers->send_work(work);
 }
 
+  void EvictManager::schedule_flush(std::vector<PageDescriptor*> pd_list)
+{
+  std::vector<WorkItem> w_list;
+  for(auto pd : pd_list){
+    w_list.emplace_back(pd, Umap::WorkItem::WorkType::FLUSH );
+  }
+  m_evict_workers->send_works(w_list);
+}
+
 EvictManager::EvictManager( void ) :
         WorkerPool("Evict Manager", 1)
       , m_buffer(RegionManager::getInstance().get_buffer_h())

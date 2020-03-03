@@ -6,5 +6,6 @@
 #############################################################################
 add_subdirectory(churn)
 add_subdirectory(flush_buffer)
+add_subdirectory(update_rates)
 add_subdirectory(pfbenchmark)
 add_subdirectory(multi_thread)

@@ -21,6 +21,8 @@ namespace Umap {
     enum WorkType { NONE, EXIT, THRESHOLD, EVICT, FAST_EVICT, FLUSH };
     PageDescriptor* page_desc;
     WorkType type;
+    WorkItem(PageDescriptor* p, WorkType t) :page_desc(p), type(t){}
+    WorkItem(){}
   };
 
   static std::ostream& operator<<(std::ostream& os, const Umap::WorkItem& b)
@@ -61,6 +63,10 @@ namespace Umap {
         m_wq->enqueue(work);
       }
 
+      void send_works(const std::vector<WorkItem>& works) {
+        m_wq->enqueueM(works);
+      }
+    
       WorkItem get_work() {
         return m_wq->dequeue();
       }
