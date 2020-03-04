@@ -36,6 +36,8 @@ git checkout v1.0rc2
 make -j $(nproc) && make install
 cd ..
 
+
+
 echo "### building mercury ###"
 cd mercury
 mkdir -p build && cd build
@@ -50,6 +52,7 @@ cmake -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
 make -j $(nproc) && make install
 cd ..
 cd ..
+
 
 echo "### building margo ###"
 cd margo
