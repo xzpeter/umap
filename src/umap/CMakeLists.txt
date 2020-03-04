@@ -20,6 +20,8 @@ set(umapheaders
       WorkQueue.hpp
       WorkerPool.hpp
       store/StoreFile.h
+      store/StoreNetwork.h
+      store/rpc_server.hpp
       store/Store.hpp
       util/Exception.hpp
       util/Logger.hpp
@@ -36,15 +38,32 @@ set(umapsrc
     umap.cpp
     store/Store.cpp
     store/StoreFile.cpp
+    store/StoreNetwork.cpp
+    store/rpc_server.cpp
     util/Exception.cpp
     util/Logger.cpp
     ${umapheaders})
 
 find_package(Threads REQUIRED)
+
+find_package(MPI REQUIRED)
+include_directories(${MPI_INCLUDE_PATH})
+
+if (MARGO_ROOT)
+    include_directories(${MARGO_ROOT}/include)
+    find_library(LIBMARGO NAMES margo PATHS ${MARGO_ROOT}/lib)
+    if (LIBMARGO)
+       link_libraries(${LIBMARGO})
+    else()
+       message(FATAL_ERROR "Cannot find MARGO library")
+    endif()
+endif()
+
+
 add_library(umap SHARED ${umapsrc} )
 add_library(umap-static STATIC ${umapsrc} )
 set_target_properties(umap-static PROPERTIES OUTPUT_NAME umap)
-target_link_libraries (umap ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries (umap ${CMAKE_THREAD_LIBS_INIT} ${MPI_LIBRARIES} ${MARGO_LIBRARIES})
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
