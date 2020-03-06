@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
 #include "umap/util/Macros.hpp"
+#include "rpc_util.hpp"
 #include "rpc_server.hpp"
 
 static const char* PROTOCOL_MARGO_SHM   = "na+sm://";
@@ -12,6 +13,17 @@ static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
 static const char* PROTOCOL_MARGO_TCP   = "bmi+tcp://";
 static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
+void publish_server_addr(const char* addr)
+{
+    /* write server address to local file for client to read */
+    FILE* fp = fopen(LOCAL_RPC_ADDR_FILE, "w+");
+    if (fp != NULL) {
+        fprintf(fp, "%s", addr);
+        fclose(fp);
+    } else {
+      UMAP_ERROR("Error writing server rpc addr file "<<LOCAL_RPC_ADDR_FILE);
+    }
+}
 
 static margo_instance_id setup_margo_server(){
 
@@ -47,8 +59,10 @@ static margo_instance_id setup_margo_server(){
     return MARGO_INSTANCE_NULL;
   }
   UMAP_LOG(Info, "Margo RPC server: "<<addr_string);
-  margo_addr_free(mid, addr);
 
+  publish_server_addr(addr_string);
+  
+  margo_addr_free(mid, addr);
   return mid;
 }
 
