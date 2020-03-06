@@ -3,6 +3,7 @@
 
 #include <margo.h>
 
+
 void init_client(void);
 void fini_client(void);
 

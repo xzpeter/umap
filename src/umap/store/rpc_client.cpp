@@ -90,6 +90,15 @@ static margo_instance_id setup_margo_client(){
   }
   UMAP_LOG(Info, "Margo client adress: " << client_address_string);
 
+
+  /* register a remote read RPC */
+  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+  /* uhg_umap_cb is only significant on the server */
+  hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+				       umap_read_rpc_in_t,
+				       umap_read_rpc_out_t,
+				       NULL);
+
   return mid;
 }
 
