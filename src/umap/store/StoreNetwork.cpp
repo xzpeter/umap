@@ -17,6 +17,7 @@
 
 #include <mpi.h>
 #include "rpc_server.hpp"
+#include "rpc_client.hpp"
 
 static int g_rank=-1;
 
@@ -53,12 +54,16 @@ namespace Umap {
     if(is_server){
 
       init_servers();
+    MPI_Barrier(MPI_COMM_WORLD);
       
     }else{
-      //init_clients();
-    }
     MPI_Barrier(MPI_COMM_WORLD);
-    UMAP_ERROR("Terminating");
+      init_client();
+      
+    }
+    
+    UMAP_LOG(Info, "Terminating");
+    std::exit(EXIT_SUCCESS);
   }
 
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nb, off_t off)
