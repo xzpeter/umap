@@ -4,6 +4,8 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
+
+#include <cassert>
 #include "umap/util/Macros.hpp"
 #include "rpc_util.hpp"
 #include "rpc_client.hpp"
@@ -43,7 +45,6 @@ static margo_instance_id setup_margo_client(){
   UMAP_LOG(Info, "server :"<<server_address_string<<" protocol: "<<protocol);
   
   /* Init Margo using server's protocol */
-  margo_instance_id mid;
   int use_progress_thread = 1;//flag to use a dedicated thread for running Mercury's progress loop. 
   int rpc_thread_count = 1; //number of threads for running rpc calls
   mid = margo_init(protocol, MARGO_SERVER_MODE, use_progress_thread, rpc_thread_count);
@@ -68,6 +69,7 @@ static margo_instance_id setup_margo_client(){
     margo_finalize(mid);
     UMAP_ERROR("Failed to lookup margo server address from string: "<<server_address_string);
   }
+  server_map[0]=server_address;
   
   /* Find the address of this client process */
   hg_addr_t client_address;
@@ -94,7 +96,7 @@ static margo_instance_id setup_margo_client(){
   /* register a remote read RPC */
   /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
   /* uhg_umap_cb is only significant on the server */
-  hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+  rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,
 				       NULL);
@@ -130,4 +132,63 @@ void fini_client(void)
   
   /* free memory allocated for context structure */
   //free(ctx);
+}
+
+
+int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
+
+  auto it = server_map.find(server_id);
+  assert( it!=server_map.end());  
+  hg_addr_t server_address = it->second;
+  hg_return_t ret;
+  
+  /* Forward the RPC. umap_client_fwdcompleted_cb will be called
+   * when receiving the response from the server
+   * After completion, user callback is placed into a
+   * completion queue and can be triggered using HG_Trigger().
+   */
+  /* Create a RPC handle */
+  hg_handle_t handle;
+  ret = margo_create(mid, server_address, rpc_read_id, &handle);
+  assert(ret == HG_SUCCESS);
+    
+  
+  /* Create input structure
+   * empty string attribute causes segfault 
+   * because Mercury doesn't check string length before copy
+   */
+  umap_read_rpc_in_t in;
+  in.size   = nbytes;
+  in.offset = offset;
+  in.bulk_handle = HG_BULK_NULL;
+  void **buf_ptrs    = (void **) &(buf_ptr);
+  size_t *buf_sizes  = &(in.size);
+  
+  /* Create a bulk transfer handle in args */
+  ret = margo_bulk_create(mid,
+			  1, buf_ptrs, buf_sizes,
+			  HG_BULK_READWRITE,
+			  &(in.bulk_handle));
+  assert(ret == HG_SUCCESS);
+    
+  
+  /* Forward RPC requst to the server */
+  ret = margo_forward(handle, &in);
+  assert(ret == HG_SUCCESS);
+    
+  /* verify the response */
+  umap_read_rpc_out_t out;
+  ret = margo_get_output(handle, &out);
+  assert(ret == HG_SUCCESS);
+  assert( out.ret=1234);
+  margo_free_output(handle, &out);
+ 
+  /* Free handle and bulk handles*/
+  ret = margo_bulk_free(in.bulk_handle);
+  assert(ret == HG_SUCCESS);
+  ret = margo_destroy(handle);
+  assert(ret == HG_SUCCESS);
+  
+  return ret;
+
 }
