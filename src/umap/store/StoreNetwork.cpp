@@ -64,8 +64,7 @@ namespace Umap {
       init_client();
       
     }
-    
-    UMAP_LOG(Info, "Terminating");
+    UMAP_LOG(Info, "StoreNetwork done");
   }
 
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)
