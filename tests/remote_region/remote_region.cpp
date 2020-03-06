@@ -44,7 +44,9 @@ int main(int argc, char **argv)
   assert(umap_region_length % umap_pagesize == 0);
   cout << "umap_pagesize "  << umap_pagesize << "\n";
   cout << "umap_region_length "  << umap_region_length << "\n";
-
+  char hostname[256];
+  if( gethostname(hostname, sizeof(hostname)) ==0 ) 
+      cout << "hostname " << hostname << "\n";
 
   /*Create a network-based datastore*/
   Umap::Store* datastore  = new Umap::StoreNetwork(umap_region_length);
