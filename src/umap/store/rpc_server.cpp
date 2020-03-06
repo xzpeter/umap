@@ -25,6 +25,95 @@ void publish_server_addr(const char* addr)
     }
 }
 
+
+/* 
+ * The read rpc is executed on the server 
+ * when the client request arrives
+ * it starts bulk transfer to the client
+ * when it returns, it callls client's rpc complete 
+ * callback function if defined in HG_Foward()
+ */
+static hg_return_t umap_server_read_rpc(hg_handle_t handle)
+{
+  UMAP_LOG(Info, "Entering umap_server_read_rpc");
+  
+  hg_return_t ret;
+
+  /* get Mercury info */
+  /* margo instance id is similar to mercury context */
+  const struct hg_info* info = margo_get_info(handle);
+  assert(info);
+  margo_instance_id mid = margo_hg_info_get_instance(info);
+  assert(mid != MARGO_INSTANCE_NULL);
+  
+    
+  /* Get input parameter in umap_server_read_rpc */
+  umap_read_rpc_in_t input;
+  ret = margo_get_input(handle, &input);
+  if(ret != HG_SUCCESS){
+    UMAP_ERROR("failed to get rpc intput");
+  }
+
+  /* the client signal termination
+  * there is no built in functon in margo
+  * to inform the server that all clients have completed
+  */
+  bool is_terminating = (input.size==0);
+  if (is_terminating){
+
+    num_completed_clients ++;
+    goto fini;
+    
+  }else{
+
+    /* register memeory for bulk transfer */
+    /* TODO: multiple bulk handlers might been */
+    /*       created on overlapping memory regions */
+    /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
+    hg_bulk_t server_bulk_handle;
+    assert(input.offset < server_buffer_length );
+    void* server_buffer_ptr = server_buffer + input.offset;
+    void **buf_ptrs = (void **) &(server_buffer_ptr);
+    ret = HG_Bulk_create(mid,
+			 1, buf_ptrs,&(input.size),
+			 HG_BULK_READ_ONLY,
+			 &server_bulk_handle);
+    if(ret != HG_SUCCESS){
+      UMAP_ERROR("Failed to create bulk handle on server");
+    }
+      
+    /* initiate bulk transfer from server to client */
+    /* margo_bulk_transfer is a blocking version of */
+    /* that only returns when HG_Bulk_transfer complete */
+    ret = margo_bulk_transfer(mid, HG_BULK_PUSH,
+			      info->addr, input.bulk_handle, 0,  //client address, bulk handle, offset
+			      server_bulk_handle, 0, input.size);//server bulk handle, offset, size of transfer
+    if(ret != HG_SUCCESS){
+      UMAP_ERROR("Failed to bulk transfer from server to client");
+    }
+
+    /* Inform the client side */
+    umap_read_rpc_in_t output;
+    output.ret  = 1234;
+    output.size = input.size;
+    hret = margo_respond(handle, &output);
+    assert(hret == HG_SUCCESS);
+    margo_bulk_free(server_bulk_handle);
+  }
+
+  
+ fini:
+    /* free margo resources */
+    ret = margo_free_input(handle, &input);
+    assert(ret == HG_SUCCESS);
+    ret = margo_destroy(handle);
+    assert(ret == HG_SUCCESS);
+    return 0;
+}
+DEFINE_MARGO_RPC_HANDLER(umap_server_read_rpc)
+
+
+
 static margo_instance_id setup_margo_server(){
 
   /* Init Margo using different transport protocols */
@@ -63,6 +152,16 @@ static margo_instance_id setup_margo_server(){
   publish_server_addr(addr_string);
   
   margo_addr_free(mid, addr);
+
+
+  /* register a remote read RPC */
+  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+  /* uhg_umap_cb is only significant on the server */
+  hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+				       umap_read_rpc_in_t,
+				       umap_read_rpc_out_t,
+				       umap_server_read_rpc);
+  
   return mid;
 }
 
