@@ -4,9 +4,10 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
+#include <cassert>
 #include "umap/util/Macros.hpp"
-#include "rpc_util.hpp"
 #include "rpc_server.hpp"
+#include "rpc_util.hpp"
 
 static const char* PROTOCOL_MARGO_SHM   = "na+sm://";
 static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
@@ -33,7 +34,7 @@ void publish_server_addr(const char* addr)
  * when it returns, it callls client's rpc complete 
  * callback function if defined in HG_Foward()
  */
-static hg_return_t umap_server_read_rpc(hg_handle_t handle)
+static int umap_server_read_rpc(hg_handle_t handle)
 {
   UMAP_LOG(Info, "Entering umap_server_read_rpc");
   
@@ -72,9 +73,9 @@ static hg_return_t umap_server_read_rpc(hg_handle_t handle)
     /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
     hg_bulk_t server_bulk_handle;
     assert(input.offset < server_buffer_length );
-    void* server_buffer_ptr = server_buffer + input.offset;
+    void* server_buffer_ptr = (char*)server_buffer + input.offset;
     void **buf_ptrs = (void **) &(server_buffer_ptr);
-    ret = HG_Bulk_create(mid,
+    ret = margo_bulk_create(mid,
 			 1, buf_ptrs,&(input.size),
 			 HG_BULK_READ_ONLY,
 			 &server_bulk_handle);
@@ -93,11 +94,10 @@ static hg_return_t umap_server_read_rpc(hg_handle_t handle)
     }
 
     /* Inform the client side */
-    umap_read_rpc_in_t output;
+    umap_read_rpc_out_t output;
     output.ret  = 1234;
-    output.size = input.size;
-    hret = margo_respond(handle, &output);
-    assert(hret == HG_SUCCESS);
+    ret = margo_respond(handle, &output);
+    assert(ret == HG_SUCCESS);
     margo_bulk_free(server_bulk_handle);
   }
 
@@ -153,14 +153,6 @@ static margo_instance_id setup_margo_server(){
   
   margo_addr_free(mid, addr);
 
-
-  /* register a remote read RPC */
-  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
-  /* uhg_umap_cb is only significant on the server */
-  hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
-				       umap_read_rpc_in_t,
-				       umap_read_rpc_out_t,
-				       umap_server_read_rpc);
   
   return mid;
 }
@@ -232,18 +224,31 @@ void connect_margo_servers(void)
 /*
  * Initialize a margo sever on the calling process
  */
-void init_servers(void)
+void init_servers(size_t rsize)
 {
 
-  margo_instance_id mid = setup_margo_server();
-  if (mid == MARGO_INSTANCE_NULL) {
-    UMAP_ERROR("cannot initialize Margo server");
+  if( !has_margo_setup){
+
+    margo_instance_id mid = setup_margo_server();
+    if (mid == MARGO_INSTANCE_NULL) {
+      UMAP_ERROR("cannot initialize Margo server");
+    }
+  
+    /* register a remote read RPC */
+    /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+    /* uhg_umap_cb is only significant on the server */
+    hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+				       umap_read_rpc_in_t,
+				       umap_read_rpc_out_t,
+				       umap_server_read_rpc);
+  
+    //connect_margo_servers();
+
+    has_margo_setup = true;
   }
   
-  /* initialize margo */
-  //register_server_rpcs(mid);
-  
-  //connect_margo_servers();
+  server_buffer_length = rsize;
+
 }
 
 

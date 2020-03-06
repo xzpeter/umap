@@ -53,7 +53,7 @@ namespace Umap {
     hg_return_t ret;
     if(is_server){
 
-      init_servers();
+      init_servers(rsize);
     MPI_Barrier(MPI_COMM_WORLD);
       
     }else{
