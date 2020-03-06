@@ -58,6 +58,8 @@ int main(int argc, char **argv)
   /*Create a network-based datastore*/
   Umap::Store* datastore  = new Umap::StoreNetwork(umap_region_length);
 
+  /* assume rank 0 is used for RPC server for now */
+  /* TODO */
   if( rank !=0 ){
     
     /* map to the remote memory region */
