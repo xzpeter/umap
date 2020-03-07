@@ -52,7 +52,7 @@ int main(int argc, char **argv)
   
   /* bootstraping to determine server and clients usnig MPI */
   int rank;
-  MPI_Init(argc, argv);
+  MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
   /*Create a network-based datastore*/
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
   /* Free the network dastore */
-  delete datastore;
+  //delete datastore;
   
   return 0;
 }
