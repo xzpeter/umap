@@ -54,17 +54,17 @@ namespace Umap {
     if(is_server){
 
       init_servers(rsize);
-      MPI_Barrier(MPI_COMM_WORLD);
+      //MPI_Barrier(MPI_COMM_WORLD);
       
     }else{
 
       /* Ensure that client setup after the server has */
       /* published their addresses */
-      MPI_Barrier(MPI_COMM_WORLD);
+      //MPI_Barrier(MPI_COMM_WORLD);
       init_client();
-      
     }
-    UMAP_LOG(Info, "StoreNetwork done");
+    MPI_Barrier(MPI_COMM_WORLD); 
+    UMAP_LOG(Info, "Done");
   }
 
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)
@@ -78,8 +78,6 @@ namespace Umap {
     int   server_id = 0;
     read_from_server(server_id, buf_ptr, nbytes, offset);
     
-    std::exit(EXIT_SUCCESS);
-
     return rval;
   }
 
