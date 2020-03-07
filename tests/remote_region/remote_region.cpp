@@ -82,9 +82,8 @@ int main(int argc, char **argv)
   
     /* Main loop: update num_updates times to the buffer for num_periods times */
     const size_t num_elements = umap_region_length/sizeof(ELEMENT_TYPE);
-    cout << "Start LOOKUP Array of "<< (umap_region_length/1024.0/1024.0/1024.0) 
-	 <<" GB ("<<num_elements<<", "<< num_updates << " updates per period) x "
-	 << num_periods <<"\n"<<std::flush;
+    cout << "Start reading ["<< (umap_region_length/1024.0/1024.0) <<" MB ] array, "
+	 << num_updates <<" reads per period x "<< num_periods <<std::endl;
 
     ELEMENT_TYPE sum = 0;
     double rates[num_periods];
