@@ -129,12 +129,12 @@ static margo_instance_id setup_margo_server(){
   margo_instance_id mid;
   int use_progress_thread = 1;//flag to use a dedicated thread for running Mercury's progress loop. 
   int rpc_thread_count = -1; //number of threads for running rpc calls
-  mid = margo_init(PROTOCOL_MARGO_MPI,
+  mid = margo_init(PROTOCOL_MARGO_VERBS,
 		   MARGO_SERVER_MODE,
 		   use_progress_thread,
 		   rpc_thread_count);
   if (mid == MARGO_INSTANCE_NULL) {
-    UMAP_ERROR("margo_init protocol "<<PROTOCOL_MARGO_MPI<<" failed");
+    UMAP_ERROR("margo_init protocol "<<PROTOCOL_MARGO_VERBS<<" failed");
     return mid;
   }
   UMAP_LOG(Info, "margo_init done");
@@ -175,7 +175,8 @@ static margo_instance_id setup_margo_server(){
  * each peer server's margo address.
  */
 void connect_margo_servers(void)
-{/*
+{
+  /*
     int rc;
     int ret = (int)UNIFYFS_SUCCESS;
     size_t i;

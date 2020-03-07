@@ -38,7 +38,7 @@ static char* get_server_address_string(){
 static margo_instance_id setup_margo_client(){
 
   /* get the protocol used by the server */
-  char* server_address_string = "mpi+static";//get_server_address_string();
+  char* server_address_string = get_server_address_string();
   char* protocol = strdup(server_address_string);
   char* del = strchr(protocol, ';');
   if (del) *del = '\0';
@@ -62,7 +62,7 @@ static margo_instance_id setup_margo_client(){
 
   
   /* lookup server address from string */
-  hg_addr_t server_address = HG_ADDR_NULL;server_address_string="rank#0$";
+  hg_addr_t server_address = HG_ADDR_NULL;
   margo_addr_lookup(mid, server_address_string, &server_address);
   //free(server_address_string);
   if (server_address == HG_ADDR_NULL) {

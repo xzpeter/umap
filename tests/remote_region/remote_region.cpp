@@ -92,18 +92,18 @@ int main(int argc, char **argv)
     
     for( int p=0; p<num_periods; p++ ){
 
-      reset_index(&idx[0], num_updates, num_elements);
-      //size_t offset = p*num_updates;
+      //reset_index(&idx[0], num_updates, num_elements);
+      size_t offset = p*num_updates;
     
       auto timing_update_st = high_resolution_clock::now();
 #pragma omp parallel for
       for(size_t i=0; i < num_updates; i++){
-	//random read
+	/*random read
 	size_t id = idx[i];
 	sum += arr[id];
-
+	*/
 	//sequential
-	//sum += arr[offset+i]; 
+	sum += arr[offset+i]; 
       }
       auto timing_update_end = high_resolution_clock::now();
       auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
@@ -113,16 +113,18 @@ int main(int argc, char **argv)
     /* End of Main Loop */
 
 
+    MPI_Barrier(MPI_COMM_WORLD);
     /* Unmap file */
     if (uunmap(base_addr, umap_region_length) < 0) {
       int eno = errno;
       std::cerr << "Failed to unmap network datastore: " << strerror(eno) << endl;
       return -1;
     }
+  }else{
+    MPI_Barrier(MPI_COMM_WORLD);
   }
   
 
-  MPI_Barrier(MPI_COMM_WORLD);
   /* Free the network dastore */
   //delete datastore;
   
