@@ -54,16 +54,16 @@ namespace Umap {
     if(is_server){
 
       init_servers(rsize);
-      //MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD);
       
     }else{
 
       /* Ensure that client setup after the server has */
       /* published their addresses */
-      //MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD);
       init_client();
     }
-    MPI_Barrier(MPI_COMM_WORLD); 
+
     UMAP_LOG(Info, "Done");
   }
 
@@ -74,7 +74,7 @@ namespace Umap {
     
     size_t rval = 0;
 
-    void* buf_ptr = buf + offset;
+    void* buf_ptr = (void*) buf;
     int   server_id = 0;
     read_from_server(server_id, buf_ptr, nbytes, offset);
     
