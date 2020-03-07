@@ -23,7 +23,7 @@
 #include "umap/umap.h"
 #include "umap/store/StoreNetwork.h"
 
-#define ELEMENT_TYPE uint64_t
+#define ELEMENT_TYPE int //uint64_t
 
 using namespace std;
 using namespace std::chrono;
@@ -92,23 +92,25 @@ int main(int argc, char **argv)
     
     for( int p=0; p<num_periods; p++ ){
 
-      //reset_index(&idx[0], num_updates, num_elements);
-      size_t offset = p*num_updates;
+      reset_index(&idx[0], num_updates, num_elements);
+      //size_t offset = p*num_updates;
     
       auto timing_update_st = high_resolution_clock::now();
 #pragma omp parallel for
       for(size_t i=0; i < num_updates; i++){
-	/*random read
+	//random read
 	size_t id = idx[i];
 	sum += arr[id];
-	*/
+	
 	//sequential
-	sum += arr[offset+i]; 
+	//sum += arr[offset+i]; 
       }
       auto timing_update_end = high_resolution_clock::now();
       auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
       rates[p]=num_updates*1000000.0/timing_update.count();
-      cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" updates per second\n"<<std::flush;
+      cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" upd/s \n"<<std::flush;
+      if(sum!=num_updates)
+	std::cerr << "sum = " << sum << " != num_updates = "<<num_updates<<endl;
     }
     /* End of Main Loop */
 

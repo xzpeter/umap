@@ -192,7 +192,7 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
   ret = margo_destroy(handle);
   assert(ret == HG_SUCCESS);
 
-  char *arr = (char*)buf_ptr;
+  int *arr = (int*) buf_ptr;
   UMAP_LOG(Info, "after getting response "<< arr[0]);
   
   return ret;
