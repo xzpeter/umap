@@ -23,7 +23,7 @@
 #include "umap/umap.h"
 #include "umap/store/StoreNetwork.h"
 
-#define ELEMENT_TYPE int //uint64_t
+#define ELEMENT_TYPE uint64_t
 
 using namespace std;
 using namespace std::chrono;
@@ -100,7 +100,8 @@ int main(int argc, char **argv)
       for(size_t i=0; i < num_updates; i++){
 	//random read
 	size_t id = idx[i];
-	sum += arr[id];
+	if( id != arr[id] )
+	  std::cerr << "arr[ " << id << "] = "<< arr[id] <<endl;
 	
 	//sequential
 	//sum += arr[offset+i]; 
@@ -109,11 +110,8 @@ int main(int argc, char **argv)
       auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
       rates[p]=num_updates*1000000.0/timing_update.count();
       cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" upd/s \n"<<std::flush;
-      if(sum!=num_updates)
-	std::cerr << "sum = " << sum << " != num_updates = "<<num_updates<<endl;
     }
     /* End of Main Loop */
-
 
     MPI_Barrier(MPI_COMM_WORLD);
     /* Unmap file */

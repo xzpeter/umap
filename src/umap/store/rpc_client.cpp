@@ -26,10 +26,7 @@ static char* get_server_address_string(){
     fclose(fp);
   }
 
-  if (NULL != addr) {
-    UMAP_LOG(Info, "found local server rpc address "<< addr);
-  }
-  else
+  if ( !addr)
     UMAP_ERROR("Unable to find local server rpc address ");
     
   return addr;
@@ -42,7 +39,7 @@ static margo_instance_id setup_margo_client(){
   char* protocol = strdup(server_address_string);
   char* del = strchr(protocol, ';');
   if (del) *del = '\0';
-  UMAP_LOG(Info, "server :"<<server_address_string<<" protocol: "<<protocol);
+  UMAP_LOG(Debug, "server :"<<server_address_string<<" protocol: "<<protocol);
   
   /* Init Margo using server's protocol */
   int use_progress_thread = 1;//flag to use a dedicated thread for running Mercury's progress loop. 
@@ -165,7 +162,7 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
   void **buf_ptrs    = (void **) &(buf_ptr);
   size_t *buf_sizes  = &(in.size);
 
-  UMAP_LOG(Info, "create bulk "<< in.size << " bytes at 0x" <<buf_ptr);
+  UMAP_LOG(Debug, "create bulk "<< in.size << " bytes at 0x" <<buf_ptr);
   /* Create a bulk transfer handle in args */
   ret = margo_bulk_create(mid,
 			  1, buf_ptrs, buf_sizes,
@@ -192,8 +189,8 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
   ret = margo_destroy(handle);
   assert(ret == HG_SUCCESS);
 
-  int *arr = (int*) buf_ptr;
-  UMAP_LOG(Info, "after getting response "<< arr[0]);
+  uint64_t *arr = (uint64_t*) buf_ptr;
+  UMAP_LOG(Debug, "after getting response "<< arr[0]);
   
   return ret;
 
