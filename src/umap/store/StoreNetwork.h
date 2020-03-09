@@ -14,22 +14,21 @@
 
 namespace Umap {
   class StoreNetwork : public Store {
-    public:
-      StoreNetwork(std::size_t _rsize_);
-      ~StoreNetwork();
-      ssize_t read_from_store(char* buf, size_t nb, off_t off);
-      ssize_t write_to_store(char* buf, size_t nb, off_t off);
-    private:
-      void* region;
-      void* alignment_buffer;
-      size_t rsize;
-      size_t alignsize;
-      int fd;
+  public:
+    StoreNetwork(std::size_t _rsize_, bool _is_server=false, std::size_t _num_clients=0);
+    ~StoreNetwork();
+    
+    ssize_t read_from_store(char* buf, size_t nb, off_t off);
+    ssize_t write_to_store(char* buf, size_t nb, off_t off);
 
-      int rank;
-      int size;
-      bool is_server;
-      int umap_rpc_id;
+  private:
+    void* region;
+    void* alignment_buffer;
+    size_t rsize;
+    size_t alignsize;
+    int fd;
+    
+    bool is_server;
   };
 }
 #endif

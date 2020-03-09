@@ -7,8 +7,8 @@
 
 #include <cassert>
 #include "umap/util/Macros.hpp"
-#include "rpc_util.hpp"
 #include "rpc_client.hpp"
+#include "rpc_util.hpp"
 
 /* Read the server address published in the file */
 static char* get_server_address_string(){
@@ -32,7 +32,7 @@ static char* get_server_address_string(){
   return addr;
 }
 
-static margo_instance_id setup_margo_client(){
+static void setup_margo_client(){
 
   /* get the protocol used by the server */
   char* server_address_string = get_server_address_string();
@@ -50,7 +50,6 @@ static margo_instance_id setup_margo_client(){
   if (mid == MARGO_INSTANCE_NULL) {
     free(server_address_string);
     UMAP_ERROR("margo_init protocol failed");
-    return mid;
   }
 
   
@@ -94,12 +93,11 @@ static margo_instance_id setup_margo_client(){
   /* register a remote read RPC */
   /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
   /* uhg_umap_cb is only significant on the server */
-  rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+  umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,
 				       NULL);
 
-  return mid;
 }
 
 
@@ -109,7 +107,7 @@ static margo_instance_id setup_margo_client(){
 void init_client(void)
 {
 
-  margo_instance_id mid = setup_margo_client();
+  setup_margo_client();
   if (mid == MARGO_INSTANCE_NULL) {
     UMAP_ERROR("cannot initialize Margo client");
   }
@@ -147,7 +145,7 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
    */
   /* Create a RPC handle */
   hg_handle_t handle;
-  ret = margo_create(mid, server_address, rpc_read_id, &handle);
+  ret = margo_create(mid, server_address, umap_read_rpc_id, &handle);
   assert(ret == HG_SUCCESS);
     
   

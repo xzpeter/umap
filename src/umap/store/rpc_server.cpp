@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
 #include <cassert>
+#include <unistd.h>
 #include "umap/util/Macros.hpp"
 #include "rpc_server.hpp"
 #include "rpc_util.hpp"
@@ -38,7 +39,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
 {
   UMAP_LOG(Debug, "Entering");
 
-  assert(has_margo_setup);
+  assert(mid != MARGO_INSTANCE_NULL);
   
   hg_return_t ret;
 
@@ -116,16 +117,18 @@ static int umap_server_read_rpc(hg_handle_t handle)
     ret = margo_destroy(handle);
     assert(ret == HG_SUCCESS);
     UMAP_LOG(Debug, "Exiting");
+
+    if(num_completed_clients == num_clients)
+      fini_servers();
     return 0;
 }
 DEFINE_MARGO_RPC_HANDLER(umap_server_read_rpc)
 
 
 
-static margo_instance_id setup_margo_server(){
+static void setup_margo_server(){
 
   /* Init Margo using different transport protocols */
-  margo_instance_id mid;
   int use_progress_thread = 1;//flag to use a dedicated thread for running Mercury's progress loop. 
   int rpc_thread_count = -1; //number of threads for running rpc calls
   mid = margo_init(PROTOCOL_MARGO_VERBS,
@@ -134,7 +137,6 @@ static margo_instance_id setup_margo_server(){
 		   rpc_thread_count);
   if (mid == MARGO_INSTANCE_NULL) {
     UMAP_ERROR("margo_init protocol "<<PROTOCOL_MARGO_VERBS<<" failed");
-    return mid;
   }
   UMAP_LOG(Info, "margo_init done");
 
@@ -145,7 +147,6 @@ static margo_instance_id setup_margo_server(){
   if (ret != HG_SUCCESS) {
     UMAP_ERROR("margo_addr_self failed");
     margo_finalize(mid);
-    return MARGO_INSTANCE_NULL;
   }
 
   /* Convert the server address to string*/
@@ -156,16 +157,13 @@ static margo_instance_id setup_margo_server(){
     UMAP_ERROR("margo_addr_to_string failed");
     margo_addr_free(mid, addr);
     margo_finalize(mid);
-    return MARGO_INSTANCE_NULL;
   }
   UMAP_LOG(Info, "Margo RPC server: "<<addr_string);
 
   publish_server_addr(addr_string);
   
   margo_addr_free(mid, addr);
-
   
-  return mid;
 }
 
 
@@ -236,29 +234,35 @@ void connect_margo_servers(void)
 /*
  * Initialize a margo sever on the calling process
  */
-void init_servers(size_t rsize)
+void init_servers(size_t rsize, size_t _num_clients)
 {
 
-  if( !has_margo_setup){
+  /* setup Margo RPC only if not done */
+  assert( mid == MARGO_INSTANCE_NULL );
 
-    margo_instance_id mid = setup_margo_server();
-    if (mid == MARGO_INSTANCE_NULL) {
-      UMAP_ERROR("cannot initialize Margo server");
-    }
+  setup_margo_server();
+  if (mid == MARGO_INSTANCE_NULL) {
+    UMAP_ERROR("cannot initialize Margo server");
+  }
   
-    /* register a remote read RPC */
-    /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
-    /* uhg_umap_cb is only significant on the server */
-    hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
+  /* register a remote read RPC */
+  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+  /* uhg_umap_cb is only significant on the server */
+  hg_id_t rpc_read_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,
 				       umap_server_read_rpc);
   
-    //connect_margo_servers();
+  //connect_margo_servers();
 
-    has_margo_setup = true;
-  }
   
+  /* init counters*/
+  num_clients = _num_clients;
+  num_completed_clients = 0;
+
+  
+  /* allocate memory resources on the server */
+  /* initialization function should be user defined*/
   server_buffer_length = rsize;
   server_buffer = malloc(rsize);
   if(!server_buffer){
@@ -268,16 +272,19 @@ void init_servers(size_t rsize)
   size_t num = rsize/sizeof(uint64_t);
   for(size_t i=0;i<num;i++)
     arr[i]=i;
+
+  
+  while (num_clients!=num_completed_clients) {
+    sleep(1);
+  }
 }
 
 
 void fini_servers(void)
 {
-  //rpc_clean_local_server_addr();
-
+  UMAP_LOG(Info, "Server shutting down ...");
   /* shut down margo */
-  //margo_finalize(mid);
+  margo_finalize(mid);
   
-  /* free memory allocated for context structure */
-  //free(ctx);
+  free(server_buffer);
 }
