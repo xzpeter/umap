@@ -33,7 +33,7 @@ void reset_index(size_t *arr, size_t len, size_t range);
 int main(int argc, char **argv)
 {
   if( argc != 4 ){
-    printf("Usage: %s [num_pages] [updates_per_period] [num_periods]\n",argv[0]);
+    printf("Usage: %s [num_pages] [lookups_per_period] [num_periods]\n",argv[0]);
     return 0;
   }
   
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
       auto timing_update_end = high_resolution_clock::now();
       auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
       rates[p]=num_updates*1000000.0/timing_update.count();
-      cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" upd/s \n"<<std::flush;
+      cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" lookups/s \n"<<std::flush;
     }
     /* End of Main Loop */
 
