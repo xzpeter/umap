@@ -19,8 +19,6 @@
 #include "rpc_server.hpp"
 #include "rpc_client.hpp"
 
-static int g_rank=-1;
-
 namespace Umap {
 
   StoreNetwork::~StoreNetwork(){
@@ -28,33 +26,31 @@ namespace Umap {
   }
 
   
-  StoreNetwork::StoreNetwork( std::size_t _rsize_ )
-    :rsize(_rsize_)
+  StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server, std::size_t _num_clients)
+    :rsize(_rsize_), is_server(_is_server)
   {
     
     /* bootstraping to determine server and clients usnig MPI */
+    /* not needed if MPI protocol is not used */
     int flag_mpi_initialized;
     MPI_Initialized(&flag_mpi_initialized);
     if( !flag_mpi_initialized )
       MPI_Init(NULL, NULL);
-
+    int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    is_server = (rank==0) ?true : false;
-    g_rank = rank;
-    UMAP_LOG(Info, "MPI rank " <<g_rank<< " / " << size << ", is_server=" << is_server);
-    
-    /* init Mercurry */
-    
-    /* create Mercurry context */
-    //hg_context = HG_Context_create(hg_class);
+    UMAP_LOG(Info, "MPI rank " << rank << " is_server=" << is_server);
+
     
     /* Lookup the server address */
     hg_return_t ret;
     if(is_server){
 
-      init_servers(rsize);
+      init_servers(rsize, _num_clients);
+      
+      /* Ensure that client setup after the server has */
+      /* published their addresses */
       MPI_Barrier(MPI_COMM_WORLD);
+      UMAP_LOG(Info, "Server is setup");
       
     }else{
 
@@ -62,9 +58,9 @@ namespace Umap {
       /* published their addresses */
       MPI_Barrier(MPI_COMM_WORLD);
       init_client();
+      UMAP_LOG(Info, "Client is setup");
     }
 
-    UMAP_LOG(Info, "Done");
   }
 
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)

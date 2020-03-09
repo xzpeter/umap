@@ -5,6 +5,10 @@
 
 #define LOCAL_RPC_ADDR_FILE "serverfile"
 
+static margo_instance_id mid;
+static hg_id_t umap_read_rpc_id;
+static hg_id_t umap_write_rpc_id;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
