@@ -36,7 +36,7 @@ void publish_server_addr(const char* addr)
  */
 static int umap_server_read_rpc(hg_handle_t handle)
 {
-  UMAP_LOG(Info, "Entering");
+  UMAP_LOG(Debug, "Entering");
 
   assert(has_margo_setup);
   
@@ -57,7 +57,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Info, "request "<<input.size<<" bytes at offset "<< input.offset);
+  UMAP_LOG(Debug, "request "<<input.size<<" bytes at offset "<< input.offset);
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -76,8 +76,8 @@ static int umap_server_read_rpc(hg_handle_t handle)
     /*       created on overlapping memory regions */
     /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
     hg_bulk_t server_bulk_handle;
-    assert(input.size <= server_buffer_length );
-    void* server_buffer_ptr = (char*)server_buffer;// + input.offset;
+    assert( (input.offset+input.size) <= server_buffer_length );
+    void* server_buffer_ptr = (char*)server_buffer + input.offset;
     void **buf_ptrs = (void **) &(server_buffer_ptr);
     ret = margo_bulk_create(mid,
 			 1, buf_ptrs,&(input.size),
@@ -87,8 +87,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
       UMAP_ERROR("Failed to create bulk handle on server");
     }
 
-    UMAP_LOG(Info,"start bulk transfer");
-
+    UMAP_LOG(Debug,"start bulk transfer");
     /* initiate bulk transfer from server to client */
     /* margo_bulk_transfer is a blocking version of */
     /* that only returns when HG_Bulk_transfer complete */
@@ -98,7 +97,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     if(ret != HG_SUCCESS){
       UMAP_ERROR("Failed to bulk transfer from server to client");
     }
-    UMAP_LOG(Info,"end bulk transfer");
+    UMAP_LOG(Debug,"end bulk transfer");
 
 
     /* Inform the client side */
@@ -116,7 +115,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     assert(ret == HG_SUCCESS);
     ret = margo_destroy(handle);
     assert(ret == HG_SUCCESS);
-    UMAP_LOG(Info, "Exiting");
+    UMAP_LOG(Debug, "Exiting");
     return 0;
 }
 DEFINE_MARGO_RPC_HANDLER(umap_server_read_rpc)
@@ -262,10 +261,13 @@ void init_servers(size_t rsize)
   
   server_buffer_length = rsize;
   server_buffer = malloc(rsize);
-  memset(server_buffer,1,rsize);
   if(!server_buffer){
     UMAP_ERROR(" Unable to allocate "<<rsize<<" bytes on the server");
   }
+  uint64_t *arr = (uint64_t*) server_buffer;
+  size_t num = rsize/sizeof(uint64_t);
+  for(size_t i=0;i<num;i++)
+    arr[i]=i;
 }
 
 
