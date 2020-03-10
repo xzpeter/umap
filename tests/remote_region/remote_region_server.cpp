@@ -66,7 +66,8 @@ int main(int argc, char **argv)
   for(size_t i=0;i<num;i++)
     arr[i]=i;
 
-  /*Create a network-based datastore*/
+  /* Create a network-based datastore */
+  /* 0 num_clients leaves the server on */
   Umap::Store* datastore  = new Umap::StoreNetworkServer(server_buffer,
 							 umap_region_length,
 							 num_clients);

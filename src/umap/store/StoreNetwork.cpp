@@ -23,22 +23,43 @@
 namespace Umap {
 
   StoreNetworkServer::StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients)
-    :    StoreNetwork(_rsize_,true,_num_clients)
+    :StoreNetwork(_rsize_, true, _num_clients)
   {
+    init_servers();
+    
     setup_server_buffer(_ptr, _rsize_);
+
+    start_server(_num_clients);
+
+    UMAP_LOG(Info, "Server is setup");
   }
 
-  StoreNetworkClient::StoreNetworkClient(std::size_t _rsize_)
-    :    StoreNetwork(_rsize_)
+  StoreNetworkServer::~StoreNetworkServer()
   {
-  }
-  
-  StoreNetwork::~StoreNetwork(){
     fini_servers();
   }
   
+  StoreNetworkClient::StoreNetworkClient(std::size_t _rsize_)
+    :StoreNetwork(_rsize_, false)
+  {
+    init_client();
+    
+    UMAP_LOG(Info, "Client is setup");
+  }
+
+  StoreNetworkClient::~StoreNetworkClient()
+  {
+    UMAP_LOG(Info, "Client Destructor");
+    /* send a request of 0 byte to the server to signal termination */
+    int   server_id = 0;      
+    read_from_server(server_id, NULL, 0, 0);
+
+    /* Free resouces */
+    fini_client();
+  }
+    
   StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server, std::size_t _num_clients)
-    :rsize(_rsize_), is_server(_is_server)
+    :rsize(_rsize_), is_server(_is_server), num_clients(_num_clients)
   {
     
     /* bootstraping to determine server and clients usnig MPI */
@@ -53,25 +74,30 @@ namespace Umap {
 
     
     /* Lookup the server address */
-    hg_return_t ret;
     if(is_server){
 
-      init_servers(rsize, _num_clients);
+      //init_servers(rsize, _num_clients);
       
       /* Ensure that client setup after the server has */
       /* published their addresses */
-      MPI_Barrier(MPI_COMM_WORLD);
-      UMAP_LOG(Info, "Server is setup");
+      //MPI_Barrier(MPI_COMM_WORLD);
+      //UMAP_LOG(Info, "Server is setup");
       
     }else{
 
       /* Ensure that client setup after the server has */
       /* published their addresses */
-      MPI_Barrier(MPI_COMM_WORLD);
-      init_client();
-      UMAP_LOG(Info, "Client is setup");
+      //MPI_Barrier(MPI_COMM_WORLD);
+      //init_client();
+      //UMAP_LOG(Info, "Client is setup");
     }
 
+  }
+
+  StoreNetwork::~StoreNetwork(){
+    
+    UMAP_LOG(Info, "Base Destructor ...");
+    
   }
 
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)
