@@ -56,7 +56,7 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
   /*Create a network-based datastore*/
-  Umap::Store* datastore  = new Umap::StoreNetwork(umap_region_length);
+  Umap::Store* datastore  = new Umap::StoreNetworkClient(umap_region_length);
 
   /* map to the remote memory region */
     auto timing_map_st = high_resolution_clock::now();
@@ -110,6 +110,7 @@ int main(int argc, char **argv)
     /* End of Main Loop */
 
     MPI_Barrier(MPI_COMM_WORLD);
+
     /* Unmap file */
     if (uunmap(base_addr, umap_region_length) < 0) {
       int eno = errno;

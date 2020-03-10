@@ -15,9 +15,9 @@ if(OPENMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 
-    add_executable(remote_region remote_region.cpp)
-    add_dependencies(remote_region umap)
-    target_link_libraries(remote_region umap ${MPI_LIBRARIES})
+    #add_executable(remote_region remote_region.cpp)
+    #add_dependencies(remote_region umap)
+    #target_link_libraries(remote_region umap ${MPI_LIBRARIES})
 
     add_executable(remote_region_server remote_region_server.cpp)
     add_executable(remote_region_client remote_region_client.cpp)
@@ -28,7 +28,7 @@ if(OPENMP_FOUND)
 
     include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${UMAPINCLUDEDIRS} ${MPI_INCLUDE_PATH} )
 
-    install(TARGETS remote_region remote_region_server remote_region_client 
+    install(TARGETS remote_region_server remote_region_client 
     		    LIBRARY DESTINATION lib
     		    ARCHIVE DESTINATION lib/static
     		    RUNTIME DESTINATION bin )

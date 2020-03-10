@@ -22,23 +22,21 @@ namespace Umap {
     ssize_t write_to_store(char* buf, size_t nb, off_t off);
 
   private:
-    void* region;
-    void* alignment_buffer;
     size_t rsize;
-    size_t alignsize;
-    int fd;
-    
     bool is_server;
+    size_t num_clients;
   };
 
   class StoreNetworkServer : public StoreNetwork {
   public:
-    StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients=0);    
+    StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients=0);
+    ~StoreNetworkServer();
   };
   
   class StoreNetworkClient : public StoreNetwork {
   public:
     StoreNetworkClient(std::size_t _rsize_);
+    ~StoreNetworkClient();
   };
 }
 #endif
