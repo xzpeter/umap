@@ -43,50 +43,56 @@ int main(int argc, char **argv)
   const int num_periods = atoi(argv[3]);
   const uint64_t umap_region_length = num_umap_pages * umap_pagesize;
   assert(umap_region_length % umap_pagesize == 0);
-  cout << "umap_pagesize "  << umap_pagesize << "\n";
-  cout << "umap_region_length "  << umap_region_length << "\n";
   char hostname[256];
-  if( gethostname(hostname, sizeof(hostname)) ==0 ) 
-      cout << "hostname " << hostname << "\n";
+  assert( gethostname(hostname, sizeof(hostname)) ==0 );
 
   
   /* bootstraping to determine server and clients usnig MPI */
-  int rank;
+  int rank,num_proc;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
+  if(rank==0){
+    cout << "umap_pagesize "  << umap_pagesize << "\n";
+    cout << "umap_region_length "  << umap_region_length << "\n";
+  }
     
   /*Create a network-based datastore*/
   Umap::Store* datastore  = new Umap::StoreNetworkClient(umap_region_length);
 
   /* map to the remote memory region */
-    auto timing_map_st = high_resolution_clock::now();
-    void* region_addr = NULL; //to be set by umap
-    int   prot        = PROT_READ;
-    int   flags       = UMAP_PRIVATE;
-    int   fd          = -1;
-    off_t offset      = 0;
-    void* base_addr = umap_ex(region_addr, umap_region_length, prot, flags, fd, offset, datastore);
-    auto timing_map_end = high_resolution_clock::now();
-    if ( base_addr == UMAP_FAILED ) {
-      int eno = errno;
-      std::cerr << "Failed to umap network" << ": " << strerror(eno) << std::endl;
-      return 0;
-    }
-    auto timing_map = duration_cast<microseconds>(timing_map_end - timing_map_st);
-    cout << "umap base_addr at "<< base_addr << ", Time taken [us]: "<< timing_map.count() <<"\n"<<std::flush;
+  auto timing_map_st = high_resolution_clock::now();
+  void* region_addr = NULL; //to be set by umap
+  int   prot        = PROT_READ;
+  int   flags       = UMAP_PRIVATE;
+  int   fd          = -1;
+  off_t offset      = 0;
+  void* base_addr = umap_ex(region_addr, umap_region_length, prot, flags, fd, offset, datastore);
+  auto timing_map_end = high_resolution_clock::now();
+  if ( base_addr == UMAP_FAILED ) {
+    int eno = errno;
+    std::cerr << "Failed to umap network" << ": " << strerror(eno) << std::endl;
+    return 0;
+  }
+  auto timing_map = duration_cast<microseconds>(timing_map_end - timing_map_st);
+  MPI_Barrier(MPI_COMM_WORLD);
+  cout << "Rank " << rank << " hostname " << hostname << "\n";
+  cout << "Rank " << rank << " base_addr at "<< base_addr << ", Time taken [us]: "<< timing_map.count() <<"\n"<<std::flush;
+  MPI_Barrier(MPI_COMM_WORLD);
 
+  if( rank==0) {
+    cout << "Start reading ["<< (umap_region_length/1024.0/1024.0) <<" MB ] memory pool on the server "
+	 << num_updates <<" times per period x "<< num_periods << " periods" << std::endl;
+  }
   
-    /* Main loop: update num_updates times to the buffer for num_periods times */
-    const size_t num_elements = umap_region_length/sizeof(ELEMENT_TYPE);
-    cout << "Start reading ["<< (umap_region_length/1024.0/1024.0) <<" MB ] array, "
-	 << num_updates <<" reads per period x "<< num_periods <<std::endl;
-
-    ELEMENT_TYPE sum = 0;
-    double rates[num_periods];
-    size_t idx[num_updates];
-    ELEMENT_TYPE *arr = (ELEMENT_TYPE *) base_addr;
+  /* Main loop: update num_updates times to the buffer for num_periods times */
+  const size_t num_elements = umap_region_length/sizeof(ELEMENT_TYPE);
+  ELEMENT_TYPE sum = 0;
+  double rates[num_periods];
+  size_t idx[num_updates];
+  ELEMENT_TYPE *arr = (ELEMENT_TYPE *) base_addr;
     
-    for( int p=0; p<num_periods; p++ ){
+  for( int p=0; p<num_periods; p++ ){
 
       reset_index(&idx[0], num_updates, num_elements);
       //size_t offset = p*num_updates;
@@ -94,33 +100,37 @@ int main(int argc, char **argv)
       auto timing_update_st = high_resolution_clock::now();
 #pragma omp parallel for
       for(size_t i=0; i < num_updates; i++){
-	//random read
-	size_t id = idx[i];
-	if( id != arr[id] )
-	  std::cerr << "arr[ " << id << "] = "<< arr[id] <<endl;
 	
-	//sequential
+	/* random read */
+	size_t id = idx[i];
+	/* Verify the content fetched from the server */
+	if( id != arr[id] )
+	  std::cerr << "arr[ " << id << "] = "<< arr[id] << " != " << id << endl;
+	
+	/*sequential read */
 	//sum += arr[offset+i]; 
       }
       auto timing_update_end = high_resolution_clock::now();
       auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
       rates[p]=num_updates*1000000.0/timing_update.count();
-      cout << "Period["<< p<<"] Time : "<< timing_update.count() <<" [us], " <<rates[p]<<" lookups/s \n"<<std::flush;
-    }
-    /* End of Main Loop */
+  }
+  /* End of Main Loop */
 
-    MPI_Barrier(MPI_COMM_WORLD);
+  for( int p=0; p<num_periods; p++ )
+    cout << "Rank " << rank << " Period["<< p <<"] : " << rates[p] << " lookups/s \n"<<std::flush;
 
-    /* Unmap file */
-    if (uunmap(base_addr, umap_region_length) < 0) {
-      int eno = errno;
-      std::cerr << "Failed to unmap network datastore: " << strerror(eno) << endl;
-      return -1;
-    }
-    
+  /* Unmap file */
+  if (uunmap(base_addr, umap_region_length) < 0) {
+    int eno = errno;
+    std::cerr << "Failed to unmap network datastore: " << strerror(eno) << endl;
+    return -1;
+  }
 
   /* Free the network dastore */
   delete datastore;
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Finalize();
   
   return 0;
 }
