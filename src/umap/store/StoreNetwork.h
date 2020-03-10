@@ -30,5 +30,15 @@ namespace Umap {
     
     bool is_server;
   };
+
+  class StoreNetworkServer : public StoreNetwork {
+  public:
+    StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients=0);    
+  };
+  
+  class StoreNetworkClient : public StoreNetwork {
+  public:
+    StoreNetworkClient(std::size_t _rsize_);
+  };
 }
 #endif

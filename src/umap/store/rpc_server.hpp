@@ -5,7 +5,7 @@
 
 void init_servers(size_t _rsize, size_t _num_clients);
 void fini_servers(void);
-
+void setup_server_buffer( void* _ptr );
 
 static int num_completed_clients=0;
 static int num_clients=0;

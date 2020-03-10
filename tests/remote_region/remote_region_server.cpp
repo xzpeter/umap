@@ -51,13 +51,31 @@ int main(int argc, char **argv)
   int rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
+
+
+  /* Prepare memory resources on the server */
+  void* server_buffer = malloc(umap_region_length);
+  if(!server_buffer){
+    std::cerr<<" Unable to allocate " << umap_region_length << " bytes on the server";
+    return 0;
+  }
+  
+  /* initialization function should be user defined*/
+  uint64_t *arr = (uint64_t*) server_buffer;
+  size_t num = umap_region_length/sizeof(uint64_t);
+  for(size_t i=0;i<num;i++)
+    arr[i]=i;
+
   /*Create a network-based datastore*/
-  Umap::Store* datastore  = new Umap::StoreNetwork(umap_region_length, 1, num_clients);
+  Umap::Store* datastore  = new Umap::StoreNetworkServer(server_buffer,
+							 umap_region_length,
+							 num_clients);
   
 
   /* Free the network dastore */
   delete datastore;
+    
+  free(server_buffer);
   
   return 0;
 }

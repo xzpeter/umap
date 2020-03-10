@@ -4,6 +4,7 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
+
 #include <unistd.h>
 #include <stdio.h>
 #include "StoreNetwork.h"
@@ -21,10 +22,20 @@
 
 namespace Umap {
 
+  StoreNetworkServer::StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients)
+    :    StoreNetwork(_rsize_,true,_num_clients)
+  {
+    setup_server_buffer(_ptr, _rsize_);
+  }
+
+  StoreNetworkClient::StoreNetworkClient(std::size_t _rsize_)
+    :    StoreNetwork(_rsize_)
+  {
+  }
+  
   StoreNetwork::~StoreNetwork(){
     fini_servers();
   }
-
   
   StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server, std::size_t _num_clients)
     :rsize(_rsize_), is_server(_is_server)
