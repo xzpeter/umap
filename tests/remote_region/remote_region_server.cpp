@@ -63,6 +63,7 @@ int main(int argc, char **argv)
   /* initialization function should be user defined*/
   uint64_t *arr = (uint64_t*) server_buffer;
   size_t num = umap_region_length/sizeof(uint64_t);
+#pragma omp parallel for
   for(size_t i=0;i<num;i++)
     arr[i]=i;
 
