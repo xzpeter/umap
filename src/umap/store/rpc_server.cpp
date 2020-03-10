@@ -118,8 +118,10 @@ static int umap_server_read_rpc(hg_handle_t handle)
     assert(ret == HG_SUCCESS);
     UMAP_LOG(Debug, "Exiting");
 
-    if(num_completed_clients == num_clients)
+    /* stop the server only if the clients specify the total number of clients */
+    if(  num_clients>0 && num_completed_clients == num_clients)
       fini_servers();
+
     return 0;
 }
 DEFINE_MARGO_RPC_HANDLER(umap_server_read_rpc)
@@ -173,73 +175,38 @@ static void setup_margo_server(){
  */
 void connect_margo_servers(void)
 {
-  /*
-    int rc;
-    int ret = (int)UNIFYFS_SUCCESS;
-    size_t i;
-    hg_return_t hret;
-
-    // block until a margo_svr key pair published by all servers
-    rc = unifyfs_keyval_fence_remote();
-    if ((int)UNIFYFS_SUCCESS != rc) {
-        LOGERR("keyval fence on margo_svr key failed");
-        ret = (int)UNIFYFS_FAILURE;
-        return ret;
-    }
-
-    for (i = 0; i < glb_num_servers; i++) {
-        int remote_pmi_rank = -1;
-        char* pmi_rank_str = NULL;
-        char* margo_addr_str = NULL;
-
-        rc = unifyfs_keyval_lookup_remote(i, key_unifyfsd_pmi_rank,
-                                          &pmi_rank_str);
-        if ((int)UNIFYFS_SUCCESS != rc) {
-            LOGERR("server index=%zu - pmi rank lookup failed", i);
-            ret = (int)UNIFYFS_FAILURE;
-            return ret;
-        }
-        if (NULL != pmi_rank_str) {
-            remote_pmi_rank = atoi(pmi_rank_str);
-            free(pmi_rank_str);
-        }
-        glb_servers[i].pmi_rank = remote_pmi_rank;
-
-        margo_addr_str = rpc_lookup_remote_server_addr(i);
-        if (NULL == margo_addr_str) {
-            LOGERR("server index=%zu - margo server lookup failed", i);
-            ret = (int)UNIFYFS_FAILURE;
-            return ret;
-        }
-        glb_servers[i].margo_svr_addr = HG_ADDR_NULL;
-        glb_servers[i].margo_svr_addr_str = margo_addr_str;
-        LOGDBG("server index=%zu, pmi_rank=%d, margo_addr=%s",
-               i, remote_pmi_rank, margo_addr_str);
-        if (!margo_lazy_connect) {
-            hret = margo_addr_lookup(unifyfsd_rpc_context->svr_mid,
-                                     glb_servers[i].margo_svr_addr_str,
-                                     &(glb_servers[i].margo_svr_addr));
-            if (hret != HG_SUCCESS) {
-                LOGERR("server index=%zu - margo_addr_lookup(%s) failed",
-                       i, margo_addr_str);
-                ret = (int)UNIFYFS_FAILURE;
-            }
-        }
-    }
-
-    return ret;*/
 }
 
+/* Setup the memory resource on the server*/
+/* the resource should be prepared and init by the user*/
+void setup_server_buffer( void* _ptr , size_t rsize){
+
+  server_buffer = _ptr;
+  server_buffer_length = rsize;
+  
+}
+
+void start_server(size_t _num_clients)
+{
+  /* init counters*/
+  num_clients = _num_clients;
+  num_completed_clients = 0;
+
+  /* Two Options: (1) keep server active */
+  /*              (2) shutdown when all clients complete*/
+  while (1) {
+    sleep(1);
+  }
+}
 
 /*
  * Initialize a margo sever on the calling process
  */
-void init_servers(size_t rsize, size_t _num_clients)
+void init_servers()
 {
 
   /* setup Margo RPC only if not done */
   assert( mid == MARGO_INSTANCE_NULL );
-
   setup_margo_server();
   if (mid == MARGO_INSTANCE_NULL) {
     UMAP_ERROR("cannot initialize Margo server");
@@ -255,36 +222,16 @@ void init_servers(size_t rsize, size_t _num_clients)
   
   //connect_margo_servers();
 
-  
-  /* init counters*/
-  num_clients = _num_clients;
-  num_completed_clients = 0;
-
-  
-  /* allocate memory resources on the server */
-  /* initialization function should be user defined*/
-  server_buffer_length = rsize;
-  server_buffer = malloc(rsize);
-  if(!server_buffer){
-    UMAP_ERROR(" Unable to allocate "<<rsize<<" bytes on the server");
-  }
-  uint64_t *arr = (uint64_t*) server_buffer;
-  size_t num = rsize/sizeof(uint64_t);
-  for(size_t i=0;i<num;i++)
-    arr[i]=i;
-
-  
-  while (num_clients!=num_completed_clients) {
-    sleep(1);
-  }
 }
 
 
 void fini_servers(void)
 {
-  UMAP_LOG(Info, "Server shutting down ...");
-  /* shut down margo */
-  margo_finalize(mid);
   
-  free(server_buffer);
+  UMAP_LOG(Info, "Server shutting down ...");
+
+  /* shut down margo */
+  if(mid!=MARGO_INSTANCE_NULL)
+    margo_finalize(mid);
+
 }
