@@ -58,7 +58,7 @@ int main(int argc, char **argv)
   }
     
   /*Create a network-based datastore*/
-  Umap::Store* datastore  = new Umap::StoreNetworkClient(umap_region_length);
+  Umap::Store* datastore  = new Umap::StoreNetworkClient("a", umap_region_length);
 
   /* map to the remote memory region */
   auto timing_map_st = high_resolution_clock::now();

@@ -32,7 +32,7 @@ using namespace std::chrono;
 int main(int argc, char **argv)
 {
   if( argc != 3 ){
-    printf("Usage: %s [per_array_bytes] [repeat]\n",argv[0]);
+    printf("Usage: %s [per_array_bytes] [num_repeat]\n",argv[0]);
     return 0;
   }
   
@@ -51,13 +51,13 @@ int main(int argc, char **argv)
   MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
   if(rank==0){
     cout << "umap_pagesize "  << umap_pagesize << "\n";
-    cout << "remote STREAM benchmark:: array_length = "  << array_length << " bytes \n";
+    cout << "Remote STREAM Add :: array_length = "  << array_length << " bytes \n";
   }
     
   /*Create network-based datastores */
-  Umap::Store* ds0  = new Umap::StoreNetworkClient("arr_a", umap_region_length);
+  Umap::Store* ds0  = new Umap::StoreNetworkClient("arr_a", array_length);
   assert(ds0!=NULL);
-  Umap::Store* ds1  = new Umap::StoreNetworkClient("arr_b", umap_region_length);
+  Umap::Store* ds1  = new Umap::StoreNetworkClient("arr_b", array_length);
   assert(ds1!=NULL);
   
   /* map to the remote memory region */
@@ -77,31 +77,29 @@ int main(int argc, char **argv)
 			prot, flags,
 			fd, offset,
 			ds1);
-  auto timing_map_end = high_resolution_clock::now();
-  
+  auto timing_map_end = high_resolution_clock::now();  
   if ( arr_a == UMAP_FAILED || arr_b == UMAP_FAILED) {
-    std::cerr << "Failed to umap network" << ": " << strerror(eno) << std::endl;
+    std::cerr << "Failed to umap network-based datastore " << std::endl;
     return 0;
   }
   
   auto timing_map = duration_cast<microseconds>(timing_map_end - timing_map_st);
-  MPI_Barrier(MPI_COMM_WORLD);
   cout << "Rank " << rank << " hostname " << hostname << "\n";
   cout << "Rank " << rank << " arr_a "<< arr_a << " arr_b "<< arr_b
-       <<", Time [us]: "<< timing_map.count() <<"\n"<<std::flush;
+       <<", Map Time [us]: "<< timing_map.count() <<"\n"<<std::flush;
   MPI_Barrier(MPI_COMM_WORLD);
+
+
+  const size_t num_elements = array_length/sizeof(ELEMENT_TYPE);
+  ELEMENT_TYPE *a = (ELEMENT_TYPE *) arr_a;
+  ELEMENT_TYPE *b = (ELEMENT_TYPE *) arr_b;
+  ELEMENT_TYPE *c = (ELEMENT_TYPE *) malloc(array_length);
+  assert( c!=NULL);
 
   
   /* Main loop: update num_updates times to the buffer for num_periods times */
-  const size_t num_elements = umap_region_length/sizeof(ELEMENT_TYPE);
-  ELEMENT_TYPE *a = (ELEMENT_TYPE *) arr_a;
-  ELEMENT_TYPE *b = (ELEMENT_TYPE *) arr_b;
-  ELEMENT_TYPE *c = (ELEMENT_TYPE *)malloc(array_length);
-  assert( c!=NULL);
-
-
   auto timing_update_st = high_resolution_clock::now();      
-  for( int p=0; p<num_repeat; p++ ){
+  for( int p=0; p<num_repeats; p++ ){
 
 #pragma omp parallel for
     for(size_t i=0; i < num_elements; i++){
@@ -114,7 +112,8 @@ int main(int argc, char **argv)
 
   cout << "Rank " << rank << " Ave. time [us] : " << timing_update.count()/num_repeats
        << " c["<< (num_elements/2) <<"]="<< c[num_elements/2] <<std::endl;
-
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   /* Unmap file */
   if ( uunmap(arr_a, array_length)<0 || uunmap(arr_b, array_length)<0 ) {
     int eno = errno;
@@ -127,7 +126,7 @@ int main(int argc, char **argv)
   delete ds1;
   free(c);
 
-  MPI_Barrier(MPI_COMM_WORLD);
+
   MPI_Finalize();
   
   return 0;

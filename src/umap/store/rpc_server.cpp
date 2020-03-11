@@ -272,19 +272,6 @@ void setup_server_buffer( void* _ptr , size_t rsize){
   
 }
 
-void start_server(size_t _num_clients)
-{
-  /* init counters*/
-  num_clients = _num_clients;
-  num_completed_clients = 0;
-
-  /* Two Options: (1) keep server active */
-  /*              (2) shutdown when all clients complete*/
-  while (1) {
-    sleep(1);
-  }
-}
-
 /*
  * Initialize a margo sever on the calling process
  */
@@ -292,27 +279,41 @@ void init_servers()
 {
 
   /* setup Margo RPC only if not done */
-  assert( mid == MARGO_INSTANCE_NULL );
-  setup_margo_server();
-  if (mid == MARGO_INSTANCE_NULL) {
-    UMAP_ERROR("cannot initialize Margo server");
-  }
+  if( mid == MARGO_INSTANCE_NULL ){
+    
+    setup_margo_server();
+    if (mid == MARGO_INSTANCE_NULL) {
+      UMAP_ERROR("cannot initialize Margo server");
+    }
   
-  /* register a remote read RPC */
-  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
-  /* uhg_umap_cb is only significant on the server */
-  umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
+    /* register a remote read RPC */
+    /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+    /* uhg_umap_cb is only significant on the server */
+    umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,
 				       umap_server_read_rpc);
 
-  umap_write_rpc_id = MARGO_REGISTER(mid, "umap_write_rpc",
+    umap_write_rpc_id = MARGO_REGISTER(mid, "umap_write_rpc",
 				       umap_write_rpc_in_t,
 				       umap_write_rpc_out_t,
 				       umap_server_write_rpc);
   
-  //connect_margo_servers();
-
+    //connect_margo_servers();
+  
+    UMAP_LOG(Info, " setup");
+    
+    /* init counters*/
+    //num_clients = _num_clients;
+    //num_completed_clients = 0;
+    
+    /* Two Options: (1) keep server active */
+    /*              (2) shutdown when all clients complete*/
+    while (1) {
+      sleep(1);
+    }
+    
+  }
 }
 
 

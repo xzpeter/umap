@@ -69,7 +69,8 @@ int main(int argc, char **argv)
 
   /* Create a network-based datastore */
   /* 0 num_clients leaves the server on */
-  Umap::Store* datastore  = new Umap::StoreNetworkServer(server_buffer,
+  Umap::Store* datastore  = new Umap::StoreNetworkServer("a",
+							 server_buffer,
 							 umap_region_length,
 							 num_clients);
   

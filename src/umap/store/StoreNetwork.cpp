@@ -20,18 +20,26 @@
 #include "rpc_server.hpp"
 #include "rpc_client.hpp"
 
+
 namespace Umap {
 
-  StoreNetworkServer::StoreNetworkServer(void* _ptr, std::size_t _rsize_, std::size_t _num_clients)
-    :StoreNetwork(_rsize_, true, _num_clients)
+  int StoreNetwork::client_id =-1;
+  int StoreNetwork::server_id =-1;
+  std::map<const char*, RemoteMemoryObject> StoreNetwork::remote_memory_pool;
+
+  StoreNetworkServer::StoreNetworkServer(const char* id, void* _ptr, std::size_t _rsize_, std::size_t _num_clients)
+    :StoreNetwork(_rsize_, true)
   {
+    /* setup Margo connect */
+    /* is done once only */
     init_servers();
-    
-    setup_server_buffer(_ptr, _rsize_);
 
-    start_server(_num_clients);
-
-    UMAP_LOG(Info, "Server is setup");
+    /* Register the remote memory object to the pool */
+    //setup_server_buffer(_ptr, _rsize_);
+    if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+      UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
+    }
+    remote_memory_pool.emplace(id, RemoteMemoryObject(_ptr,_rsize_));
   }
 
   StoreNetworkServer::~StoreNetworkServer()
@@ -39,12 +47,20 @@ namespace Umap {
     fini_servers();
   }
   
-  StoreNetworkClient::StoreNetworkClient(std::size_t _rsize_)
+  StoreNetworkClient::StoreNetworkClient(const char* id, std::size_t _rsize_)
     :StoreNetwork(_rsize_, false)
   {
+
+    /* setup Margo connect */
+    /* is done once only */
     init_client();
+    /* Register the remote memory object to the pool */
+    //setup_server_buffer(_ptr, _rsize_);
+    if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+      UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
+    }
+    remote_memory_pool.emplace(id, RemoteMemoryObject(NULL,_rsize_));
     
-    UMAP_LOG(Info, "Client is setup");
   }
 
   StoreNetworkClient::~StoreNetworkClient()
@@ -58,8 +74,8 @@ namespace Umap {
     fini_client();
   }
     
-  StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server, std::size_t _num_clients)
-    :rsize(_rsize_), is_server(_is_server), num_clients(_num_clients)
+  StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server)
+    :rsize(_rsize_), is_server(_is_server)
   {
     
     /* bootstraping to determine server and clients usnig MPI */
@@ -70,12 +86,10 @@ namespace Umap {
       MPI_Init(NULL, NULL);
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    UMAP_LOG(Info, "MPI rank " << rank << " is_server=" << is_server);
-
     
     /* Lookup the server address */
     if(is_server){
-
+      server_id = rank;
       //init_servers(rsize, _num_clients);
       
       /* Ensure that client setup after the server has */
@@ -84,7 +98,7 @@ namespace Umap {
       //UMAP_LOG(Info, "Server is setup");
       
     }else{
-
+      client_id = rank;
       /* Ensure that client setup after the server has */
       /* published their addresses */
       //MPI_Barrier(MPI_COMM_WORLD);
