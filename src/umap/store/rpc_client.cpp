@@ -98,6 +98,11 @@ static void setup_margo_client(){
 				       umap_read_rpc_out_t,
 				       NULL);
 
+  umap_write_rpc_id = MARGO_REGISTER(mid, "umap_write_rpc",
+				    umap_write_rpc_in_t,
+				    umap_write_rpc_out_t,
+				    NULL);
+  
 }
 
 
@@ -189,6 +194,65 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
 
   uint64_t *arr = (uint64_t*) buf_ptr;
   UMAP_LOG(Debug, "after getting response "<< arr[0]);
+  
+  return ret;
+
+}
+
+int write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
+
+  auto it = server_map.find(server_id);
+  assert( it!=server_map.end());  
+  hg_addr_t server_address = it->second;
+  hg_return_t ret;
+  
+  /* Forward the RPC. umap_client_fwdcompleted_cb will be called
+   * when receiving the response from the server
+   * After completion, user callback is placed into a
+   * completion queue and can be triggered using HG_Trigger().
+   */
+  /* Create a RPC handle */
+  hg_handle_t handle;
+  ret = margo_create(mid, server_address, umap_write_rpc_id, &handle);
+  assert(ret == HG_SUCCESS);
+    
+  
+  /* Create input structure
+   * empty string attribute causes segfault 
+   * because Mercury doesn't check string length before copy
+   */
+  umap_write_rpc_in_t in;
+  in.size   = nbytes;
+  in.offset = offset;
+  in.bulk_handle = HG_BULK_NULL;
+  void **buf_ptrs    = (void **) &(buf_ptr);
+  size_t *buf_sizes  = &(in.size);
+
+  /* Create a bulk transfer handle in args */
+  ret = margo_bulk_create(mid,
+			  1, buf_ptrs, buf_sizes,
+			  HG_BULK_READ_ONLY,
+			  &(in.bulk_handle));
+  assert(ret == HG_SUCCESS);
+    
+  
+  /* Forward RPC requst to the server */
+  ret = margo_forward(handle, &in);
+  assert(ret == HG_SUCCESS);
+
+    
+  /* verify the response */
+  umap_write_rpc_out_t out;
+  ret = margo_get_output(handle, &out);
+  assert(ret == HG_SUCCESS);
+  assert( out.ret=4321);
+  margo_free_output(handle, &out);
+ 
+  /* Free handle and bulk handles*/
+  ret = margo_bulk_free(in.bulk_handle);
+  assert(ret == HG_SUCCESS);
+  ret = margo_destroy(handle);
+  assert(ret == HG_SUCCESS);
   
   return ret;
 

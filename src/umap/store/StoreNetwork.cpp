@@ -114,12 +114,19 @@ namespace Umap {
     return rval;
   }
 
-  ssize_t  StoreNetwork::write_to_store(char* buf, size_t nb, off_t off)
+  ssize_t  StoreNetwork::write_to_store(char* buf, size_t nbytes, off_t offset)
   {
+    /* TODO: coexist server and client */
+    assert( !is_server);
+    
     size_t rval = 0;
-    std::exit(EXIT_SUCCESS);
 
+    void* buf_ptr = (void*) buf;
+    int   server_id = 0;
+    write_to_server(server_id, buf_ptr, nbytes, offset);
+    
     return rval;
+
   }
 
 }
