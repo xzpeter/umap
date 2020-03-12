@@ -15,6 +15,46 @@ static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
 static const char* PROTOCOL_MARGO_TCP   = "bmi+tcp://";
 static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
+static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
+static int server_id=-1;
+
+void print_memory_pool()
+{
+  for(auto it : remote_memory_pool)
+    UMAP_LOG(Info, "Server "<< server_id
+	     <<"remote_memory_pool[ " << it.first << " ] :: "
+	     <<(it.second).ptr << ", " <<(it.second).rsize);
+}
+
+int server_add_resource(const char*id, void* ptr, size_t rsize){
+  int ret = 0;
+
+  /* Register the remote memory object to the pool */
+  if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+    UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
+    return -1;
+  }
+  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize ));
+  
+  print_memory_pool();
+  return ret;
+}
+
+int server_delete_resource(const char* id){
+  int ret = 0;
+  
+  assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
+  remote_memory_pool.erase(id);
+  print_memory_pool();
+  
+  if(remote_memory_pool.size()==0){
+    UMAP_LOG(Info, "shuting down Server " << server_id);
+    fini_servers();
+  }
+  
+  return ret;
+}
+
 void publish_server_addr(const char* addr)
 {
     /* write server address to local file for client to read */
@@ -27,7 +67,24 @@ void publish_server_addr(const char* addr)
     }
 }
 
-
+char* get_memory_object(const char* id, size_t offset, size_t size)
+{
+  char* ptr = NULL;
+  std::map<const char*, RemoteMemoryObject>::iterator it = remote_memory_pool.find(id);
+  if( it==remote_memory_pool.end() ){
+    /*TODO */
+    UMAP_ERROR("Request "<<id<<" not found");
+    return ptr;
+  }
+  
+  RemoteMemoryObject obj = it->second;
+  assert( obj.ptr!=NULL);
+  assert( (offset+size) <= obj.rsize );
+  ptr = (char*)obj.ptr;
+  
+  return ptr;
+}
+  
 /* 
  * The read rpc is executed on the server 
  * when the client request arrives
@@ -58,7 +115,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Debug, "request "<<input.size<<" bytes at offset "<< input.offset);
+  UMAP_LOG(Debug, "request "<<input.id<<" of "<<input.size<<" bytes at offset "<< input.offset);
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -72,18 +129,22 @@ static int umap_server_read_rpc(hg_handle_t handle)
     
   }else{
 
+    /* Verify that the request is valid */
+    char* server_buf_ptr = get_memory_object(input.id,
+					     input.offset,
+					     input.size);
+
     /* register memeory for bulk transfer */
     /* TODO: multiple bulk handlers might been */
     /*       created on overlapping memory regions */
     /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
     hg_bulk_t server_bulk_handle;
-    assert( (input.offset+input.size) <= server_buffer_length );
-    void* server_buffer_ptr = (char*)server_buffer + input.offset;
+    void* server_buffer_ptr = server_buf_ptr + input.offset;
     void **buf_ptrs = (void **) &(server_buffer_ptr);
     ret = margo_bulk_create(mid,
-			 1, buf_ptrs,&(input.size),
-			 HG_BULK_READ_ONLY,
-			 &server_bulk_handle);
+			    1, buf_ptrs,&(input.size),
+			    HG_BULK_READ_ONLY,
+			    &server_bulk_handle);
     if(ret != HG_SUCCESS){
       UMAP_ERROR("Failed to create bulk handle on server");
     }
@@ -103,7 +164,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
 
     /* Inform the client side */
     umap_read_rpc_out_t output;
-    output.ret  = 1234;
+    output.ret  = RPC_RESPONSE_READ_DONE;
     ret = margo_respond(handle, &output);
     assert(ret == HG_SUCCESS);
     margo_bulk_free(server_bulk_handle);
@@ -161,14 +222,18 @@ static int umap_server_write_rpc(hg_handle_t handle)
 
   /* Shall we allow empty write request? or just ignore */
   assert(input.size>0);
+
+  /* Verify that the request is valid */
+  char* server_buf_ptr = get_memory_object(input.id,
+					   input.offset,
+					   input.size);
   
   /* register memeory for bulk transfer */
   /* TODO: multiple bulk handlers might been */
   /*       created on overlapping memory regions */
   /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
   hg_bulk_t server_bulk_handle;
-  assert( (input.offset+input.size) <= server_buffer_length );
-  void* server_buffer_ptr = (char*)server_buffer + input.offset;
+  void* server_buffer_ptr = server_buf_ptr + input.offset;
   void **buf_ptrs = (void **) &(server_buffer_ptr);
   ret = margo_bulk_create(mid,
 			  1, buf_ptrs,&(input.size),
@@ -193,7 +258,7 @@ static int umap_server_write_rpc(hg_handle_t handle)
 
   /* Inform the client side */
   umap_write_rpc_out_t output;
-  output.ret  = 4321;
+  output.ret  = RPC_RESPONSE_WRITE_DONE;
   ret = margo_respond(handle, &output);
   assert(ret == HG_SUCCESS);
   margo_bulk_free(server_bulk_handle);
@@ -220,7 +285,57 @@ DEFINE_MARGO_RPC_HANDLER(umap_server_write_rpc)
  * have been made available by the server
  */
 static int umap_server_request_rpc(hg_handle_t handle)
-{}
+{
+  
+  hg_return_t ret;
+
+  /* get Mercury info */
+  /* margo instance id is similar to mercury context */
+  const struct hg_info* info = margo_get_info(handle);
+  assert(info);
+  /* TODO: is this check necessary? */
+  margo_instance_id mid = margo_hg_info_get_instance(info);
+  assert(mid != MARGO_INSTANCE_NULL);
+      
+  /* Get input parameter */
+  umap_request_rpc_in_t in;
+  ret = margo_get_input(handle, &in);
+  if(ret != HG_SUCCESS){
+    UMAP_ERROR("failed to get rpc intput");
+  }
+  UMAP_LOG(Info, " received a request ["<<in.id<<", "<<in.size<<"]" );
+
+
+  umap_request_rpc_out_t output;
+  /* Check whether the server has published the requested memory object */
+  if( remote_memory_pool.find(in.id) != remote_memory_pool.end() ){
+
+    /* Check whether the size match the record */
+    /* TODO: shall we allow request with size smaller */
+    if( in.size == remote_memory_pool[in.id].rsize ){
+      output.ret  = RPC_RESPONSE_REQ_AVAIL;
+    }else{
+      output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
+      UMAP_LOG(Info, in.id << " on the Server has size="<<remote_memory_pool[in.id].rsize
+	                   << ", but request size="<<in.size)
+    }
+  }else{
+    output.ret  = RPC_RESPONSE_REQ_UNAVAIL;
+    UMAP_LOG(Info, in.id << " has not been published by the Server");
+  }
+
+  /* Inform the client about the decison */
+  ret = margo_respond(handle, &output);
+  assert(ret == HG_SUCCESS);
+  
+  /* free margo resources */
+  ret = margo_free_input(handle, &in);
+  assert(ret == HG_SUCCESS);
+  ret = margo_destroy(handle);
+  assert(ret == HG_SUCCESS);
+  
+  return 0;
+}
 DEFINE_MARGO_RPC_HANDLER(umap_server_request_rpc)
 
 
@@ -273,14 +388,6 @@ void connect_margo_servers(void)
 {
 }
 
-/* Setup the memory resource on the server*/
-/* the resource should be prepared and init by the user*/
-void setup_server_buffer( void* _ptr , size_t rsize){
-
-  server_buffer = _ptr;
-  server_buffer_length = rsize;
-  
-}
 
 /*
  * Initialize a margo sever on the calling process

@@ -23,6 +23,7 @@ set(umapheaders
       store/StoreNetwork.h
       store/rpc_server.hpp
       store/rpc_client.hpp
+      store/rpc_util.hpp
       store/Store.hpp
       util/Exception.hpp
       util/Logger.hpp
@@ -42,6 +43,7 @@ set(umapsrc
     store/StoreNetwork.cpp
     store/rpc_server.cpp
     store/rpc_client.cpp
+    store/rpc_util.cpp
     util/Exception.cpp
     util/Logger.cpp
     ${umapheaders})

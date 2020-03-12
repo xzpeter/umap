@@ -1,16 +1,11 @@
 #ifndef _RPC_SERVER_H
 #define _RPC_SERVER_H
 
-#include <margo.h>
+void server_init(void);
+void server_fini(void);
+void server_start(size_t _num_clients);
 
-void init_servers(void);
-void fini_servers(void);
-void setup_server_buffer( void* _ptr , size_t rsize);
-void start_server(size_t _num_clients);
-
-static int num_completed_clients=0;
-static int num_clients=0;
-static void  *server_buffer=NULL;
-static size_t server_buffer_length=0;
+int server_add_resource(const char*id, void* ptr, size_t rsize);
+int server_delete_resource(const char* id);
 
 #endif

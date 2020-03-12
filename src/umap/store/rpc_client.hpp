@@ -1,15 +1,16 @@
 #ifndef _RPC_CLIENT_H
 #define _RPC_CLIENT_H
 
-#include <map>
-#include <margo.h>
 
+void client_init(void);
+void client_fini(void);
 
-void init_client(void);
-void fini_client(void);
-int  read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset);
-int  write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset);
+int  client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset);
+int  client_write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset);
 
-static std::map<int, hg_addr_t> server_map;
+bool client_check_resource(const char*id);
+int client_request_resource(const char* id, size_t rsize);
+void client_add_resource(const char*id, void* ptr, size_t rsize);
+int client_delete_resource(const char* id);
 
 #endif

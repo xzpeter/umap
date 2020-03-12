@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 
   Umap::Store* ds1 = new Umap::StoreNetworkClient("arr_b", array_length);
   assert(ds1!=NULL);
-  cout << "Rank "<< rank << " registered arr_a" << "\n";
+  cout << "Rank "<< rank << " registered arr_b" << "\n";
   MPI_Barrier(MPI_COMM_WORLD);
   /* End of registering remote memory objects */
     

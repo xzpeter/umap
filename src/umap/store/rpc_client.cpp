@@ -10,6 +10,51 @@
 #include "rpc_client.hpp"
 #include "rpc_util.hpp"
 
+static std::map<int, hg_addr_t> server_map;
+static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
+static int client_id=-1;
+
+void print_memory_pool()
+{
+  for(auto it : remote_memory_pool)
+    UMAP_LOG(Info, "Client "<< client_id
+	     <<"remote_memory_pool[ " << it.first << " ] :: "
+	     <<(it.second).ptr << ", " <<(it.second).rsize);
+}
+
+bool client_check_resource(const char*id){
+
+  /* Register the remote memory object to the pool */
+  if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+    return false;
+  }
+  
+  return true;
+}
+
+void client_add_resource(const char*id, void* ptr, size_t rsize){
+
+  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize));
+  print_memory_pool();
+
+}
+
+int client_delete_resource(const char* id){
+  int ret = 0;
+  
+  assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
+  remote_memory_pool.erase(id);
+  print_memory_pool();
+  
+  if(remote_memory_pool.size()==0){
+    UMAP_LOG(Info, "shuting down Server " << server_id);
+    fini_servers();
+  }
+  
+  return ret;
+}
+
+
 /* Read the server address published in the file */
 static char* get_server_address_string(){
 
@@ -114,7 +159,7 @@ static void setup_margo_client(){
 /*
  * Initialize a margo client on the calling process
  */
-void init_client(void)
+void client_init(void)
 {
 
   setup_margo_client();
@@ -129,7 +174,7 @@ void init_client(void)
 }
 
 
-void fini_client(void)
+void client_fini(void)
 {
   //rpc_clean_local_server_addr();
 
@@ -140,8 +185,45 @@ void fini_client(void)
   //free(ctx);
 }
 
+int request_server_resource(const char* id, size_t rsize){
 
-int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
+  /* TODO: management of the server list*/
+  int server_id = 0;
+  auto it = server_map.find(server_id);
+  assert( it!=server_map.end());  
+  hg_addr_t server_address = it->second;
+  
+  /* Create a RPC handle */
+  hg_return_t ret;
+  hg_handle_t handle;
+  ret = margo_create(mid, server_address, umap_request_rpc_id, &handle);
+  assert(ret == HG_SUCCESS);
+
+  /* Create input structure */
+  umap_request_rpc_in_t in;
+  in.id = strdup(id);
+  in.size = rsize;
+  in.id   = strdup(id);    
+  
+  /* Forward RPC requst to the server */
+  ret = margo_forward(handle, &in);
+  assert(ret == HG_SUCCESS);
+    
+  /* verify the response */
+  umap_request_rpc_out_t out;
+  ret = margo_get_output(handle, &out);
+  assert(ret == HG_SUCCESS);
+  assert( out.ret=8888);
+  margo_free_output(handle, &out);
+ 
+  /* Free handle and bulk handles*/
+  ret = margo_destroy(handle);
+  assert(ret == HG_SUCCESS);
+  
+  return true;
+}
+
+int client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
 
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
@@ -204,7 +286,7 @@ int read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
 
 }
 
-int write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
+int client_write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
 
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  

@@ -17,95 +17,117 @@
 #include "umap/util/Macros.hpp"
 
 #include <mpi.h>
+#include "rpc_util.hpp"
 #include "rpc_server.hpp"
 #include "rpc_client.hpp"
 
 
 namespace Umap {
-
-  int StoreNetwork::client_id =-1;
-  int StoreNetwork::server_id =-1;
-  std::map<const char*, RemoteMemoryObject> StoreNetwork::remote_memory_pool;
   bool has_server_setup = false;
+  bool has_client_setup = false;
   
+  /*
+   * Constructor
+   * create a remote memory object on the server 
+   * init the server connection if not setup
+   */
   StoreNetworkServer::StoreNetworkServer(const char* _id,
 					 void* _ptr,
 					 std::size_t _rsize_,
 					 std::size_t _num_clients)
-    :StoreNetwork(_rsize_, true),id(_id)
+    :StoreNetwork(_id, _rsize_, true)
   {
     /* setup Margo connect */
     /* is done once only */
     if( !has_server_setup ){
+          
+      /* bootstraping to determine server and clients usnig MPI */
+      /* not needed if MPI protocol is not used */
+      int flag_mpi_initialized;
+      MPI_Initialized(&flag_mpi_initialized);
+      if( !flag_mpi_initialized )
+	MPI_Init(NULL, NULL);
+      MPI_Comm_rank(MPI_COMM_WORLD, &server_id);
+      
       init_servers();
       has_server_setup = true;
     }
 
-    /* Register the remote memory object to the pool */
-    if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
-      UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
-    }
-    remote_memory_pool.emplace(id, RemoteMemoryObject(_ptr,_rsize_));
-
-    print_memory_pool();
+    /* Try to register the new resource */
+    int ret = server_add_resource(id, _ptr, rsize);
+    assert( ret==0 );
   }
 
   StoreNetworkServer::~StoreNetworkServer()
   {
-    UMAP_LOG(Info, "Deleting: " << id);
-    assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
-    remote_memory_pool.erase(id);
-    print_memory_pool();
+    UMAP_LOG(Info, "Server "<< server_id << " is deleting: " << id);
 
-    if(remote_memory_pool.size()==0){
-      UMAP_LOG(Info, "shuting down...");
-      fini_servers();
-    }
+
+    /* Try to remove the new resource */
+    int ret = server_delete_resource(id);
+    assert( ret==0 );
+
   }
   
-  StoreNetworkClient::StoreNetworkClient(const char* id, std::size_t _rsize_)
-    :StoreNetwork(_rsize_, false)
+  StoreNetworkClient::StoreNetworkClient(const char* _id, std::size_t _rsize_)
+    :StoreNetwork(_id, _rsize_, false)
   {
-
+    
     /* setup Margo connect */
     /* is done once only */
-    init_client();
-    /* Register the remote memory object to the pool */
-    //setup_server_buffer(_ptr, _rsize_);
-    if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+    if( !has_client_setup ){
+      int flag_mpi_initialized;
+      MPI_Initialized(&flag_mpi_initialized);
+      if( !flag_mpi_initialized )
+        MPI_Init(NULL, NULL);
+      MPI_Comm_rank(MPI_COMM_WORLD, &client_id);
+      
+      init_client();
+      has_client_setup = true;
+    }
+
+    /* Try to register the new resource */
+    if( client_check_resource(id) ){
+
+      /* Get request approval from the server */
+      bool has_server_accepted = client_request_resource(id, rsize);
+      if( !has_server_accepted ){
+	UMAP_ERROR("Cannot request "<< id << ", rejected by the server ");
+      }
+      
+      client_add_resource(id, _ptr, rsize);
+
+    }else{
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     }
-    remote_memory_pool.emplace(id, RemoteMemoryObject(NULL,_rsize_));
-    
   }
 
   StoreNetworkClient::~StoreNetworkClient()
   {
-    UMAP_LOG(Info, "Client Destructor");
+
+    UMAP_LOG(Info, "Client "<< client_id <<" deleting: " << id);
+    
     /* send a request of 0 byte to the server to signal termination */
     int   server_id = 0;      
-    read_from_server(server_id, NULL, 0, 0);
+    client_read_from_server(server_id, NULL, 0, 0);
 
-    /* Free resouces */
-    fini_client();
+    /* Try to remove the new resource */
+    int ret = client_delete_resource(id);
+    assert( ret==0 );
+
   }
     
-  StoreNetwork::StoreNetwork( std::size_t _rsize_ , bool _is_server)
-    :rsize(_rsize_), is_server(_is_server)
+  StoreNetwork::StoreNetwork( const char* _id,
+			      std::size_t _rsize_,
+			      bool _is_on_server)
+    :id(_id),
+     rsize(_rsize_),
+     is_on_server(_is_on_server)
   {
     
-    /* bootstraping to determine server and clients usnig MPI */
-    /* not needed if MPI protocol is not used */
-    int flag_mpi_initialized;
-    MPI_Initialized(&flag_mpi_initialized);
-    if( !flag_mpi_initialized )
-      MPI_Init(NULL, NULL);
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
     /* Lookup the server address */
-    if(is_server){
-      server_id = rank;
+    if(is_on_server){
+
       //init_servers(rsize, _num_clients);
       
       /* Ensure that client setup after the server has */
@@ -114,7 +136,7 @@ namespace Umap {
       //UMAP_LOG(Info, "Server is setup");
       
     }else{
-      client_id = rank;
+
       /* Ensure that client setup after the server has */
       /* published their addresses */
       //MPI_Barrier(MPI_COMM_WORLD);
@@ -125,23 +147,13 @@ namespace Umap {
   }
 
   StoreNetwork::~StoreNetwork()
-  {
-    
-    UMAP_LOG(Info, "Base Destructor ...");
-    
-  }
-
-  void StoreNetwork::print_memory_pool()
-  {
-    for(auto it : remote_memory_pool)
-      UMAP_LOG(Info, "remote_memory_pool["<<it.first<<"] :: "<<
-	       (it.second).ptr << ", " <<(it.second).rsize );
+  {    
   }
   
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)
   {
     /* Only client should receive filler work items*/
-    assert( !is_server);
+    assert( !is_on_server);
     
     size_t rval = 0;
 
@@ -155,7 +167,7 @@ namespace Umap {
   ssize_t  StoreNetwork::write_to_store(char* buf, size_t nbytes, off_t offset)
   {
     /* TODO: coexist server and client */
-    assert( !is_server);
+    assert( !is_on_server);
     
     size_t rval = 0;
 

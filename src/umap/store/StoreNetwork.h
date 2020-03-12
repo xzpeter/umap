@@ -8,39 +8,27 @@
 #ifndef _UMAP_NETWORK_STORE_H_
 #define _UMAP_NETWORK_STORE_H_
 #include <cstdint>
-#include <map>
 #include "umap/store/Store.hpp"
 #include "umap/umap.h"
 
 
 namespace Umap {
-  typedef struct remote_memory_object
-  {
-    void *ptr;
-    size_t rsize;
-    remote_memory_object(void* p, size_t s)
-    :ptr(p), rsize(s) {}
-  } RemoteMemoryObject;
-  
+
   class StoreNetwork : public Store {
   public:
-    StoreNetwork(std::size_t _rsize_, bool _is_server=false);
+    StoreNetwork(const char* _id, std::size_t _rsize_, bool _is_server=false);
     virtual ~StoreNetwork();
     
     ssize_t read_from_store(char* buf, size_t nb, off_t off);
     ssize_t write_to_store(char* buf, size_t nb, off_t off);
 
-  private:
-    size_t rsize;
-    bool is_server;
-    size_t num_clients;
-    const char* ds_id;
-
   protected:
-    void print_memory_pool();
-    static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
-    static int server_id;
-    static int client_id;
+    /* per-data object attributes*/
+    const char* id;
+    size_t rsize;
+    bool is_on_server;
+    size_t num_clients;
+
   };
 
   class StoreNetworkServer : public StoreNetwork {
@@ -49,13 +37,18 @@ namespace Umap {
     ~StoreNetworkServer();
 
   private:
-    const char* id;
+    int server_id;
+
   };
   
   class StoreNetworkClient : public StoreNetwork {
   public:
     StoreNetworkClient(const char* id, std::size_t _rsize_);
     ~StoreNetworkClient();
+
+  private:
+    int client_id;
+
   };
 }
 #endif

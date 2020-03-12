@@ -76,11 +76,11 @@ int main(int argc, char **argv)
   Umap::Store* ds1  = new Umap::StoreNetworkServer("arr_b", arr1, array_length);
   std::cout << "ds1 is Registed " << std::endl;
 
-  int periods = 5;
-  while((periods--)>0){
+  int periods = 50;
+  while((periods)>0){
 
     std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
-    sleep(1);
+    sleep(3);
   }
 
   
