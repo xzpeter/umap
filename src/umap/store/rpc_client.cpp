@@ -90,9 +90,14 @@ static void setup_margo_client(){
   UMAP_LOG(Info, "Margo client adress: " << client_address_string);
 
 
-  /* register a remote read RPC */
+  /* register a RPC */
   /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
   /* uhg_umap_cb is only significant on the server */
+  umap_request_rpc_id = MARGO_REGISTER(mid, "umap_request_rpc",
+				       umap_request_rpc_in_t,
+				       umap_request_rpc_out_t,
+				       NULL);
+
   umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,

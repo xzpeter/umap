@@ -213,6 +213,16 @@ static int umap_server_write_rpc(hg_handle_t handle)
 DEFINE_MARGO_RPC_HANDLER(umap_server_write_rpc)
 
 
+/*                                                                                                                                                                              
+ * The request rpc is executed on the server
+ * when the client request arrives
+ * it checks whether the requested memory resources
+ * have been made available by the server
+ */
+static int umap_server_request_rpc(hg_handle_t handle)
+{}
+DEFINE_MARGO_RPC_HANDLER(umap_server_request_rpc)
+
 
 static void setup_margo_server(){
 
@@ -279,13 +289,17 @@ void init_servers()
 {
 
   /* setup Margo RPC only if not done */
-  if( mid == MARGO_INSTANCE_NULL ){
+  if( mid != MARGO_INSTANCE_NULL ){
+    UMAP_LOG(Info, " servers have been initialized before, returning...");
+  }else{
     
     setup_margo_server();
     if (mid == MARGO_INSTANCE_NULL) {
       UMAP_ERROR("cannot initialize Margo server");
     }
-  
+
+    //connect_margo_servers();
+
     /* register a remote read RPC */
     /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
     /* uhg_umap_cb is only significant on the server */
@@ -298,21 +312,22 @@ void init_servers()
 				       umap_write_rpc_in_t,
 				       umap_write_rpc_out_t,
 				       umap_server_write_rpc);
-  
-    //connect_margo_servers();
-  
-    UMAP_LOG(Info, " setup");
-    
+
+    umap_request_rpc_id = MARGO_REGISTER(mid, "umap_request_rpc",
+				       umap_request_rpc_in_t,
+				       umap_request_rpc_out_t,
+				       umap_server_request_rpc);
+
+      
     /* init counters*/
     //num_clients = _num_clients;
     //num_completed_clients = 0;
     
     /* Two Options: (1) keep server active */
     /*              (2) shutdown when all clients complete*/
-    while (1) {
-      sleep(1);
-    }
-    
+    //while (1) {
+    //sleep(1);
+    //}  
   }
 }
 

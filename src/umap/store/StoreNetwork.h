@@ -25,7 +25,7 @@ namespace Umap {
   class StoreNetwork : public Store {
   public:
     StoreNetwork(std::size_t _rsize_, bool _is_server=false);
-    ~StoreNetwork();
+    virtual ~StoreNetwork();
     
     ssize_t read_from_store(char* buf, size_t nb, off_t off);
     ssize_t write_to_store(char* buf, size_t nb, off_t off);
@@ -35,7 +35,9 @@ namespace Umap {
     bool is_server;
     size_t num_clients;
     const char* ds_id;
-  protected:    
+
+  protected:
+    void print_memory_pool();
     static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
     static int server_id;
     static int client_id;
@@ -43,8 +45,11 @@ namespace Umap {
 
   class StoreNetworkServer : public StoreNetwork {
   public:
-    StoreNetworkServer(const char* id, void* _ptr, std::size_t _rsize_, std::size_t _num_clients=0);
+    StoreNetworkServer(const char* _id, void* _ptr, std::size_t _rsize_, std::size_t _num_clients=0);
     ~StoreNetworkServer();
+
+  private:
+    const char* id;
   };
   
   class StoreNetworkClient : public StoreNetwork {

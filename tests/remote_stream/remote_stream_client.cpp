@@ -43,7 +43,7 @@ int main(int argc, char **argv)
   char hostname[256];
   assert( gethostname(hostname, sizeof(hostname)) ==0 );
 
-  
+
   /* bootstraping to determine server and clients usnig MPI */
   int rank,num_proc;
   MPI_Init(&argc, &argv);
@@ -51,15 +51,21 @@ int main(int argc, char **argv)
   MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
   if(rank==0){
     cout << "umap_pagesize "  << umap_pagesize << "\n";
-    cout << "Remote STREAM Add :: array_length = "  << array_length << " bytes \n";
+    cout << "Remote STREAM Add :: array_length = "  << array_length << " bytes \n";    
   }
-    
-  /*Create network-based datastores */
-  Umap::Store* ds0  = new Umap::StoreNetworkClient("arr_a", array_length);
+
+  /* Start registering network-based datastores */
+  /* successful only if the server has published the object */
+  Umap::Store* ds0 = new Umap::StoreNetworkClient("arr_a", array_length);
   assert(ds0!=NULL);
-  Umap::Store* ds1  = new Umap::StoreNetworkClient("arr_b", array_length);
+  cout << "Rank "<< rank << " registered arr_a" << "\n";
+
+  Umap::Store* ds1 = new Umap::StoreNetworkClient("arr_b", array_length);
   assert(ds1!=NULL);
-  
+  cout << "Rank "<< rank << " registered arr_a" << "\n";
+  MPI_Barrier(MPI_COMM_WORLD);
+  /* End of registering remote memory objects */
+    
   /* map to the remote memory region */
   void* region_addr = NULL; //to be set by umap
   int   prot        = PROT_READ;

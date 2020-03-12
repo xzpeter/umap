@@ -26,25 +26,41 @@ namespace Umap {
   int StoreNetwork::client_id =-1;
   int StoreNetwork::server_id =-1;
   std::map<const char*, RemoteMemoryObject> StoreNetwork::remote_memory_pool;
-
-  StoreNetworkServer::StoreNetworkServer(const char* id, void* _ptr, std::size_t _rsize_, std::size_t _num_clients)
-    :StoreNetwork(_rsize_, true)
+  bool has_server_setup = false;
+  
+  StoreNetworkServer::StoreNetworkServer(const char* _id,
+					 void* _ptr,
+					 std::size_t _rsize_,
+					 std::size_t _num_clients)
+    :StoreNetwork(_rsize_, true),id(_id)
   {
     /* setup Margo connect */
     /* is done once only */
-    init_servers();
+    if( !has_server_setup ){
+      init_servers();
+      has_server_setup = true;
+    }
 
     /* Register the remote memory object to the pool */
-    //setup_server_buffer(_ptr, _rsize_);
     if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     }
     remote_memory_pool.emplace(id, RemoteMemoryObject(_ptr,_rsize_));
+
+    print_memory_pool();
   }
 
   StoreNetworkServer::~StoreNetworkServer()
   {
-    fini_servers();
+    UMAP_LOG(Info, "Deleting: " << id);
+    assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
+    remote_memory_pool.erase(id);
+    print_memory_pool();
+
+    if(remote_memory_pool.size()==0){
+      UMAP_LOG(Info, "shuting down...");
+      fini_servers();
+    }
   }
   
   StoreNetworkClient::StoreNetworkClient(const char* id, std::size_t _rsize_)
@@ -108,12 +124,20 @@ namespace Umap {
 
   }
 
-  StoreNetwork::~StoreNetwork(){
+  StoreNetwork::~StoreNetwork()
+  {
     
     UMAP_LOG(Info, "Base Destructor ...");
     
   }
 
+  void StoreNetwork::print_memory_pool()
+  {
+    for(auto it : remote_memory_pool)
+      UMAP_LOG(Info, "remote_memory_pool["<<it.first<<"] :: "<<
+	       (it.second).ptr << ", " <<(it.second).rsize );
+  }
+  
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)
   {
     /* Only client should receive filler work items*/

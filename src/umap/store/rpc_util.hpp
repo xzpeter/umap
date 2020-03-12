@@ -2,10 +2,12 @@
 #define _RPC_UTIL_H
 
 #include "mercury_macros.h"
+#include "mercury_proc_string.h"
 
 #define LOCAL_RPC_ADDR_FILE "serverfile"
 
 static margo_instance_id mid;
+static hg_id_t umap_request_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
@@ -31,6 +33,15 @@ MERCURY_GEN_PROC(umap_write_rpc_in_t,
 
 /* UMap RPC output structure */
 MERCURY_GEN_PROC(umap_write_rpc_out_t,
+		 ((int32_t)(ret)))
+
+/* UMap RPC input structure */
+MERCURY_GEN_PROC(umap_request_rpc_in_t,
+		 ((hg_string_t)(name))\
+                 ((hg_size_t)(size)))
+
+/* UMap RPC output structure */
+MERCURY_GEN_PROC(umap_request_rpc_out_t,
 		 ((int32_t)(ret)))
 
 #ifdef __cplusplus
