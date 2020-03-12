@@ -17,8 +17,10 @@ static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
 static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 static int server_id=-1;
+static int num_completed_clients=0;
+static int num_clients=0;
 
-void print_memory_pool()
+void print_server_memory_pool()
 {
   for(auto it : remote_memory_pool)
     UMAP_LOG(Info, "Server "<< server_id
@@ -36,7 +38,7 @@ int server_add_resource(const char*id, void* ptr, size_t rsize){
   }
   remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize ));
   
-  print_memory_pool();
+  print_server_memory_pool();
   return ret;
 }
 
@@ -45,11 +47,11 @@ int server_delete_resource(const char* id){
   
   assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
   remote_memory_pool.erase(id);
-  print_memory_pool();
+  print_server_memory_pool();
   
   if(remote_memory_pool.size()==0){
     UMAP_LOG(Info, "shuting down Server " << server_id);
-    fini_servers();
+    server_fini();
   }
   
   return ret;
@@ -181,7 +183,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
 
     /* stop the server only if the clients specify the total number of clients */
     if(  num_clients>0 && num_completed_clients == num_clients)
-      fini_servers();
+      server_fini();
 
     return 0;
 }
@@ -392,7 +394,7 @@ void connect_margo_servers(void)
 /*
  * Initialize a margo sever on the calling process
  */
-void init_servers()
+void server_init()
 {
 
   /* setup Margo RPC only if not done */
@@ -439,7 +441,7 @@ void init_servers()
 }
 
 
-void fini_servers(void)
+void server_fini(void)
 {
   
   UMAP_LOG(Info, "Server shutting down ...");

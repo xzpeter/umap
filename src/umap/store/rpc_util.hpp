@@ -33,8 +33,6 @@ static hg_id_t umap_write_rpc_id;
 //static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 //static std::map<int, hg_addr_t> server_map;
 
-void print_memory_pool();
-
 
 #ifdef __cplusplus
 extern "C" {

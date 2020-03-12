@@ -14,7 +14,7 @@ static std::map<int, hg_addr_t> server_map;
 static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 static int client_id=-1;
 
-void print_memory_pool()
+void print_client_memory_pool()
 {
   for(auto it : remote_memory_pool)
     UMAP_LOG(Info, "Client "<< client_id
@@ -35,7 +35,7 @@ bool client_check_resource(const char*id){
 void client_add_resource(const char*id, void* ptr, size_t rsize){
 
   remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize));
-  print_memory_pool();
+  print_client_memory_pool();
 
 }
 
@@ -44,11 +44,11 @@ int client_delete_resource(const char* id){
   
   assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
   remote_memory_pool.erase(id);
-  print_memory_pool();
+  print_client_memory_pool();
   
   if(remote_memory_pool.size()==0){
-    UMAP_LOG(Info, "shuting down Server " << server_id);
-    fini_servers();
+    UMAP_LOG(Info, "shuting down Server " << client_id);
+    client_fini();
   }
   
   return ret;
@@ -185,7 +185,7 @@ void client_fini(void)
   //free(ctx);
 }
 
-int request_server_resource(const char* id, size_t rsize){
+bool client_request_resource(const char* id, size_t rsize){
 
   /* TODO: management of the server list*/
   int server_id = 0;

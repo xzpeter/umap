@@ -49,7 +49,7 @@ namespace Umap {
 	MPI_Init(NULL, NULL);
       MPI_Comm_rank(MPI_COMM_WORLD, &server_id);
       
-      init_servers();
+      server_init();
       has_server_setup = true;
     }
 
@@ -82,7 +82,7 @@ namespace Umap {
         MPI_Init(NULL, NULL);
       MPI_Comm_rank(MPI_COMM_WORLD, &client_id);
       
-      init_client();
+      client_init();
       has_client_setup = true;
     }
 
@@ -95,7 +95,7 @@ namespace Umap {
 	UMAP_ERROR("Cannot request "<< id << ", rejected by the server ");
       }
       
-      client_add_resource(id, _ptr, rsize);
+      client_add_resource(id, NULL, rsize);
 
     }else{
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
@@ -159,7 +159,7 @@ namespace Umap {
 
     void* buf_ptr = (void*) buf;
     int   server_id = 0;
-    read_from_server(server_id, buf_ptr, nbytes, offset);
+    client_read_from_server(server_id, buf_ptr, nbytes, offset);
     
     return rval;
   }
@@ -173,7 +173,7 @@ namespace Umap {
 
     void* buf_ptr = (void*) buf;
     int   server_id = 0;
-    write_to_server(server_id, buf_ptr, nbytes, offset);
+    client_write_to_server(server_id, buf_ptr, nbytes, offset);
     
     return rval;
 
