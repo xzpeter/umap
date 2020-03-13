@@ -2,6 +2,7 @@
 #define _RPC_UTIL_H
 
 #include <map>
+#include <string>
 #include <margo.h>
 #include "mercury_macros.h"
 #include "mercury_proc_string.h"
@@ -31,7 +32,7 @@ static hg_id_t umap_request_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
-typedef std::map<hg_const_string_t, RemoteMemoryObject> ResourcePool;
+typedef std::map<std::string, RemoteMemoryObject> ResourcePool;
 
 
 #ifdef __cplusplus

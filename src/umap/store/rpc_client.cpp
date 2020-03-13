@@ -237,7 +237,7 @@ bool client_request_resource(const char* id, size_t rsize){
   }else if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
     UMAP_ERROR("The requested "<< id <<" is unavailable.");
   }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
-    UMAP_ERROR("The requested "<< id <<" has size mismatched.");
+    UMAP_ERROR("The requested "<< id <<" has mismatched size.");
   }else{
     UMAP_ERROR("Unrecognized return message ... ");
   }

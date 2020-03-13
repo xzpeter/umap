@@ -40,14 +40,14 @@ int server_add_resource(const char* id,
   int ret = 0;
   
   /* Ensure no duplicated resource */
-  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
+  ResourcePool::iterator it = remote_memory_pool.find(id);
   if( it!=remote_memory_pool.end() ){
     UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     ret = -1;
   }
   
   /* Register the remote memory object to the pool */
-  remote_memory_pool.emplace((hg_const_string_t)id, RemoteMemoryObject(ptr, rsize) );  
+  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize) );  
   print_server_memory_pool();
   
   return ret;
@@ -61,7 +61,7 @@ int server_delete_resource(const char* id)
   int ret = 0;
 
   /* Should removing a non-exist resource be allowed? */
-  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
+  ResourcePool::iterator it = remote_memory_pool.find(id);
   if( it==remote_memory_pool.end() ){
     UMAP_ERROR("Try to delete " << id <<" not found in the pool" );
     ret = -1;
@@ -93,7 +93,7 @@ void* get_resource(const char* id, size_t offset, size_t size)
 {
   
   void* ptr = NULL;
-  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
+  ResourcePool::iterator it = remote_memory_pool.find(id);
 
   if( it==remote_memory_pool.end() ){
     /*TODO */
@@ -118,7 +118,7 @@ void* get_resource(const char* id, size_t offset, size_t size)
  */
 static int umap_server_read_rpc(hg_handle_t handle)
 {
-  UMAP_LOG(Info, "Entering");
+  UMAP_LOG(Debug, "Entering");
 
   assert(mid != MARGO_INSTANCE_NULL);
   

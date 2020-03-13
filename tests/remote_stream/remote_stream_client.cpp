@@ -116,7 +116,11 @@ int main(int argc, char **argv)
   auto timing_update = duration_cast<microseconds>(timing_update_end - timing_update_st);
   /* End of Main Loop */
 
-  cout << "Rank " << rank << " Ave. time [us] : " << timing_update.count()/num_repeats
+  size_t time = timing_update.count()/num_repeats;
+  size_t bytes= array_length*2;
+  cout << "Rank " << rank
+       << " Bandwidth [MB/s] : " << bytes*1.0/time 
+       << " Ave. time [us] : "   << time
        << " c["<< (num_elements/2) <<"]="<< c[num_elements/2] <<std::endl;
   MPI_Barrier(MPI_COMM_WORLD);
   
