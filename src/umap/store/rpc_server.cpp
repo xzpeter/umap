@@ -17,7 +17,8 @@ static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
 static const char* PROTOCOL_MARGO_TCP   = "bmi+tcp://";
 static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
-static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
+//static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
+static ResourcePool remote_memory_pool;
 static int server_id=-1;
 static int num_completed_clients=0;
 static int num_clients=0;
@@ -26,19 +27,21 @@ void print_server_memory_pool()
 {
   for(auto it : remote_memory_pool)
     UMAP_LOG(Info, "Server "<< server_id
-	     <<"remote_memory_pool[ " << it.first << " ] :: "
+	     <<" pool[ " << it.first << " ] :: "
 	     <<(it.second).ptr << ", " <<(it.second).rsize);
 }
 
 int server_add_resource(const char*id, void* ptr, size_t rsize){
+
   int ret = 0;
+  std::string key(id);
 
   /* Register the remote memory object to the pool */
-  if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
-    UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
+  if( remote_memory_pool.find(key)!=remote_memory_pool.end() ){
+    UMAP_ERROR("Cannot create datastore with duplicated name: "<< key);
     return -1;
   }
-  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize ));
+  remote_memory_pool.emplace(key, RemoteMemoryObject(ptr, rsize) );
   
   print_server_memory_pool();
   return ret;
@@ -71,10 +74,14 @@ void publish_server_addr(const char* addr)
     }
 }
 
-char* get_memory_object(const char* id, size_t offset, size_t size)
+char* get_memory_object(std::string id, size_t offset, size_t size)
 {
   char* ptr = NULL;
-  std::map<const char*, RemoteMemoryObject>::iterator it = remote_memory_pool.find(id);
+  UMAP_LOG(Info, "1Request id"<<id);
+
+  ResourcePool::iterator it = remote_memory_pool.find(id);
+  UMAP_LOG(Info, "2Request id"<<id);
+
   if( it==remote_memory_pool.end() ){
     /*TODO */
     UMAP_ERROR("Request "<<id<<" not found");
@@ -98,7 +105,7 @@ char* get_memory_object(const char* id, size_t offset, size_t size)
  */
 static int umap_server_read_rpc(hg_handle_t handle)
 {
-  UMAP_LOG(Debug, "Entering");
+  UMAP_LOG(Info, "Entering");
 
   assert(mid != MARGO_INSTANCE_NULL);
   
@@ -119,7 +126,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Debug, "request "<<input.id<<" of "<<input.size<<" bytes at offset "<< input.offset);
+  UMAP_LOG(Info, "request "<<input.id<<" of "<<input.size<<" bytes at offset "<< input.offset);
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -134,7 +141,9 @@ static int umap_server_read_rpc(hg_handle_t handle)
   }else{
 
     /* Verify that the request is valid */
-    char* server_buf_ptr = get_memory_object(input.id,
+    std::string key(input.id);
+    UMAP_LOG(Info,"key " << key);
+    char* server_buf_ptr = get_memory_object(key,
 					     input.offset,
 					     input.size);
 
@@ -309,20 +318,26 @@ static int umap_server_request_rpc(hg_handle_t handle)
   }
   UMAP_LOG(Info, " received a request ["<<in.id<<", "<<in.size<<"]" );
 
-
+  print_server_memory_pool();
+  
   umap_request_rpc_out_t output;
+  
   /* Check whether the server has published the requested memory object */
-  if( remote_memory_pool.find(in.id) != remote_memory_pool.end() ){
+  std::string key(in.id);
+  if( remote_memory_pool.find(key) != remote_memory_pool.end() ){
+    UMAP_LOG(Info, " 333333333received a request ["<<in.id<<", "<<in.size<<"]" );
 
     /* Check whether the size match the record */
     /* TODO: shall we allow request with size smaller */
-    if( in.size == remote_memory_pool[in.id].rsize ){
+    if( in.size == remote_memory_pool[key].rsize ){
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
     }else{
       output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
-      UMAP_LOG(Info, in.id << " on the Server has size="<<remote_memory_pool[in.id].rsize
+      UMAP_LOG(Info, in.id << " on the Server has size="
+	                   << remote_memory_pool[key].rsize
 	                   << ", but request size="<<in.size)
     }
+    
   }else{
     output.ret  = RPC_RESPONSE_REQ_UNAVAIL;
     UMAP_LOG(Info, in.id << " has not been published by the Server");
@@ -355,7 +370,6 @@ static void setup_margo_server(){
   if (mid == MARGO_INSTANCE_NULL) {
     UMAP_ERROR("margo_init protocol "<<PROTOCOL_MARGO_VERBS<<" failed");
   }
-  UMAP_LOG(Info, "margo_init done");
 
   
   /* Find the address of this server */
@@ -447,7 +461,8 @@ void server_init()
     /*              (2) shutdown when all clients complete*/
     //while (1) {
     //sleep(1);
-    //}  
+    //}
+    UMAP_LOG(Info, "Server " << server_id);
   }
 }
 

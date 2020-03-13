@@ -30,8 +30,8 @@ static margo_instance_id mid;
 static hg_id_t umap_request_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
-//static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
-//static std::map<int, hg_addr_t> server_map;
+
+typedef std::map<std::string, RemoteMemoryObject> ResourcePool;
 
 
 #ifdef __cplusplus

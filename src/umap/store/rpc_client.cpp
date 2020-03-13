@@ -19,7 +19,7 @@ void print_client_memory_pool()
 {
   for(auto it : remote_memory_pool)
     UMAP_LOG(Info, "Client "<< client_id
-	     <<"remote_memory_pool[ " << it.first << " ] :: "
+	     <<" pool[ " << it.first << " ] :: "
 	     <<(it.second).ptr << ", " <<(it.second).rsize);
 }
 
@@ -245,7 +245,7 @@ bool client_request_resource(const char* id, size_t rsize){
   return false;
 }
 
-int client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
+int client_read_from_server(int server_id, const char* id, void *buf_ptr, size_t nbytes, off_t offset){
 
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
@@ -268,6 +268,7 @@ int client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t o
    * because Mercury doesn't check string length before copy
    */
   umap_read_rpc_in_t in;
+  in.id     = strdup(id);
   in.size   = nbytes;
   in.offset = offset;
   in.bulk_handle = HG_BULK_NULL;

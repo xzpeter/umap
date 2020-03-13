@@ -30,7 +30,7 @@ namespace Umap {
    * create a remote memory object on the server 
    * init the server connection if not setup
    */
-  StoreNetworkServer::StoreNetworkServer(const char* _id,
+  StoreNetworkServer::StoreNetworkServer(hg_string_t _id,
 					 void* _ptr,
 					 std::size_t _rsize_,
 					 std::size_t _num_clients)
@@ -60,7 +60,7 @@ namespace Umap {
 
   }
   
-  StoreNetworkClient::StoreNetworkClient(const char* _id, std::size_t _rsize_)
+  StoreNetworkClient::StoreNetworkClient(hg_string_t _id, std::size_t _rsize_)
     :StoreNetwork(_id, _rsize_, false)
   {
     
@@ -94,7 +94,7 @@ namespace Umap {
     
     /* send a request of 0 byte to the server to signal termination */
     int   server_id = 0;      
-    client_read_from_server(server_id, NULL, 0, 0);
+    client_read_from_server(server_id, id, NULL, 0, 0);
 
     /* Try to remove the new resource */
     int ret = client_delete_resource(id);
@@ -102,7 +102,7 @@ namespace Umap {
 
   }
     
-  StoreNetwork::StoreNetwork( const char* _id,
+  StoreNetwork::StoreNetwork( hg_string_t _id,
 			      std::size_t _rsize_,
 			      bool _is_on_server)
     :id(_id),
@@ -144,7 +144,7 @@ namespace Umap {
 
     void* buf_ptr = (void*) buf;
     int   server_id = 0;
-    client_read_from_server(server_id, buf_ptr, nbytes, offset);
+    client_read_from_server(server_id, id, buf_ptr, nbytes, offset);
     
     return rval;
   }
