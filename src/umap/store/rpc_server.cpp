@@ -6,6 +6,8 @@
 //////////////////////////////////////////////////////////////////////////////
 #include <cassert>
 #include <unistd.h>
+#include <mpi.h>
+
 #include "umap/util/Macros.hpp"
 #include "rpc_server.hpp"
 #include "rpc_util.hpp"
@@ -399,9 +401,18 @@ void server_init()
 
   /* setup Margo RPC only if not done */
   if( mid != MARGO_INSTANCE_NULL ){
-    UMAP_LOG(Info, " servers have been initialized before, returning...");
+    UMAP_ERROR("Servers have been initialized before, returning...");
   }else{
+
+    /* bootstraping to determine server and clients usnig MPI */
+    /* not needed if MPI protocol is not used */
+    int flag_mpi_initialized;
+    MPI_Initialized(&flag_mpi_initialized);
+    if( !flag_mpi_initialized )
+      MPI_Init(NULL, NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &server_id);
     
+
     setup_margo_server();
     if (mid == MARGO_INSTANCE_NULL) {
       UMAP_ERROR("cannot initialize Margo server");

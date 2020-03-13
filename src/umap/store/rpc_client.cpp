@@ -4,8 +4,9 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-only
 //////////////////////////////////////////////////////////////////////////////
-
 #include <cassert>
+#include <mpi.h>
+
 #include "umap/util/Macros.hpp"
 #include "rpc_client.hpp"
 #include "rpc_util.hpp"
@@ -133,25 +134,6 @@ static void setup_margo_client(){
     UMAP_ERROR("failed to convert client address to string");
   }
   UMAP_LOG(Info, "Margo client adress: " << client_address_string);
-
-
-  /* register a RPC */
-  /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
-  /* uhg_umap_cb is only significant on the server */
-  umap_request_rpc_id = MARGO_REGISTER(mid, "umap_request_rpc",
-				       umap_request_rpc_in_t,
-				       umap_request_rpc_out_t,
-				       NULL);
-
-  umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
-				       umap_read_rpc_in_t,
-				       umap_read_rpc_out_t,
-				       NULL);
-
-  umap_write_rpc_id = MARGO_REGISTER(mid, "umap_write_rpc",
-				    umap_write_rpc_in_t,
-				    umap_write_rpc_out_t,
-				    NULL);
   
 }
 
@@ -161,16 +143,46 @@ static void setup_margo_client(){
  */
 void client_init(void)
 {
+  
+  /* setup Margo RPC only if not done */
+  if( mid != MARGO_INSTANCE_NULL ){
+    UMAP_ERROR("Clients have been initialized before, returning...");
+  }else{
+    
+    /* bootstraping to determine server and clients usnig MPI */
+    /* not needed if MPI protocol is not used */
+    int flag_mpi_initialized;
+    MPI_Initialized(&flag_mpi_initialized);
+    if( !flag_mpi_initialized )
+      MPI_Init(NULL, NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &client_id);
 
-  setup_margo_client();
-  if (mid == MARGO_INSTANCE_NULL) {
-    UMAP_ERROR("cannot initialize Margo client");
+    setup_margo_client();
+    if (mid == MARGO_INSTANCE_NULL) {
+      UMAP_ERROR("cannot initialize Margo client");
+    }
+  
+    
+    /* register a RPC */
+    /* umap_rpc_in_t, umap_rpc_out_t are only significant on clients */
+    /* uhg_umap_cb is only significant on the server */
+    umap_request_rpc_id = MARGO_REGISTER(mid, "umap_request_rpc",
+				       umap_request_rpc_in_t,
+				       umap_request_rpc_out_t,
+				       NULL);
+
+    umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
+				       umap_read_rpc_in_t,
+				       umap_read_rpc_out_t,
+				       NULL);
+
+    umap_write_rpc_id = MARGO_REGISTER(mid, "umap_write_rpc",
+				    umap_write_rpc_in_t,
+				    umap_write_rpc_out_t,
+				    NULL);
+
   }
   
-  /* initialize margo */
-  //register_server_rpcs(mid);
-  
-  //connect_margo_servers();
 }
 
 

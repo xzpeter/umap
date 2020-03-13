@@ -16,7 +16,6 @@
 #include "umap/store/Store.hpp"
 #include "umap/util/Macros.hpp"
 
-#include <mpi.h>
 #include "rpc_util.hpp"
 #include "rpc_server.hpp"
 #include "rpc_client.hpp"
@@ -41,14 +40,6 @@ namespace Umap {
     /* is done once only */
     if( !has_server_setup ){
           
-      /* bootstraping to determine server and clients usnig MPI */
-      /* not needed if MPI protocol is not used */
-      int flag_mpi_initialized;
-      MPI_Initialized(&flag_mpi_initialized);
-      if( !flag_mpi_initialized )
-	MPI_Init(NULL, NULL);
-      MPI_Comm_rank(MPI_COMM_WORLD, &server_id);
-      
       server_init();
       has_server_setup = true;
     }
@@ -75,13 +66,7 @@ namespace Umap {
     
     /* setup Margo connect */
     /* is done once only */
-    if( !has_client_setup ){
-      int flag_mpi_initialized;
-      MPI_Initialized(&flag_mpi_initialized);
-      if( !flag_mpi_initialized )
-        MPI_Init(NULL, NULL);
-      MPI_Comm_rank(MPI_COMM_WORLD, &client_id);
-      
+    if( !has_client_setup ){      
       client_init();
       has_client_setup = true;
     }
