@@ -17,24 +17,28 @@ static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
 static const char* PROTOCOL_MARGO_TCP   = "bmi+tcp://";
 static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
+static margo_instance_id mid;
+static hg_id_t umap_request_rpc_id;
+static hg_id_t umap_release_rpc_id;
+static hg_id_t umap_read_rpc_id;
+static hg_id_t umap_write_rpc_id;
+
 static ResourcePool remote_memory_pool;
 static int server_id=-1;
-static int num_completed_clients=0;
-static int num_clients=0;
 
 void print_server_memory_pool()
 {
   for(auto it : remote_memory_pool)
-    UMAP_LOG(Info, "Server "<< server_id
-	     <<" pool[ " << it.first << " ] :: "
-	     <<(it.second).ptr << ", " <<(it.second).rsize);
+    UMAP_LOG(Info, "Server "<< server_id << " pool[ " << it.first << " ] :: "
+	                    <<(it.second).ptr << ", " <<(it.second).rsize << ", " <<(it.second).num_clients);
 }
 
 /* A local function called by the server */
 /* to add a memory resource to the pool */
 int server_add_resource(const char* id,
 			void* ptr,
-			size_t rsize)
+			size_t rsize,
+			size_t num_clients)
 {
 
   int ret = 0;
@@ -47,7 +51,7 @@ int server_add_resource(const char* id,
   }
   
   /* Register the remote memory object to the pool */
-  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize) );  
+  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize, num_clients) );  
   print_server_memory_pool();
   
   return ret;
@@ -65,6 +69,10 @@ int server_delete_resource(const char* id)
   if( it==remote_memory_pool.end() ){
     UMAP_ERROR("Try to delete " << id <<" not found in the pool" );
     ret = -1;
+  }
+
+  while( (it->second).num_clients!=0 ){
+    sleep(3);
   }
   remote_memory_pool.erase(it);
   print_server_memory_pool();
@@ -145,10 +153,9 @@ static int umap_server_read_rpc(hg_handle_t handle)
   * there is no built in functon in margo
   * to inform the server that all clients have completed
   */
-  bool is_terminating = (input.size==0);
-  if (is_terminating){
 
-    num_completed_clients ++;
+  if (input.size==0){
+
     goto fini;
     
   }else{
@@ -203,10 +210,6 @@ static int umap_server_read_rpc(hg_handle_t handle)
     ret = margo_destroy(handle);
     assert(ret == HG_SUCCESS);
     UMAP_LOG(Debug, "Exiting");
-
-    /* stop the server only if the clients specify the total number of clients */
-    if(  num_clients>0 && num_completed_clients == num_clients)
-      server_fini();
 
     return 0;
 }
@@ -338,6 +341,8 @@ static int umap_server_request_rpc(hg_handle_t handle)
     /* TODO: shall we allow request with size smaller */
     if( in.size == (it->second).rsize ){
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
+      (it->second).num_clients ++;
+      print_server_memory_pool();
     }else{
       output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
       UMAP_LOG(Info, in.id << " on the Server has size="
@@ -364,6 +369,61 @@ static int umap_server_request_rpc(hg_handle_t handle)
   return 0;
 }
 DEFINE_MARGO_RPC_HANDLER(umap_server_request_rpc)
+
+
+/*                                                                                                                                                                              
+ * The release rpc is executed on the server
+ * when the client request arrives
+ * it record the termination of the requested resources
+ */
+static int umap_server_release_rpc(hg_handle_t handle)
+{
+  
+  hg_return_t ret;
+
+  const struct hg_info* info = margo_get_info(handle);
+  assert(info);
+      
+  /* Get input parameter */
+  umap_release_rpc_in_t in;
+  ret = margo_get_input(handle, &in);
+  if(ret != HG_SUCCESS){
+    UMAP_ERROR("failed to get rpc intput");
+  }
+  UMAP_LOG(Info, " received a release "<<in.id );
+  
+  umap_release_rpc_out_t output;
+
+  /* validate the resoure in the pool */
+  ResourcePool::iterator it = remote_memory_pool.find(in.id);
+  if( it != remote_memory_pool.end() ){
+      output.ret  = RPC_RESPONSE_RELEASE;
+
+      /* TODO: Reduce the number of registered clients of that resource */
+      /* TODO: thread-safety */
+      (it->second).num_clients --;
+      print_server_memory_pool();
+      
+  }else{
+    output.ret  = RPC_RESPONSE_GENERAL_ERROR;
+    UMAP_LOG(Info, in.id << " has not been published by the Server");
+    print_server_memory_pool();
+  }
+
+  /* Inform the client */
+  ret = margo_respond(handle, &output);
+  assert(ret == HG_SUCCESS);
+  
+  /* free margo resources */
+  ret = margo_free_input(handle, &in);
+  assert(ret == HG_SUCCESS);
+  ret = margo_destroy(handle);
+  assert(ret == HG_SUCCESS);
+
+  return 0;
+}
+DEFINE_MARGO_RPC_HANDLER(umap_server_release_rpc)
+
 
 
 static void setup_margo_server(){
@@ -459,6 +519,11 @@ void server_init()
 				       umap_request_rpc_in_t,
 				       umap_request_rpc_out_t,
 				       umap_server_request_rpc);
+
+    umap_release_rpc_id = MARGO_REGISTER(mid, "umap_release_rpc",
+				       umap_release_rpc_in_t,
+				       umap_release_rpc_out_t,
+				       umap_server_release_rpc);
 
       
     /* init counters*/

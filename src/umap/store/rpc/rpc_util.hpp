@@ -13,24 +13,23 @@
 #define	RPC_RESPONSE_REQ_UNAVAIL 7777
 #define RPC_RESPONSE_REQ_AVAIL 8888
 #define RPC_RESPONSE_REQ_WRONG_SIZE 9999
+#define RPC_RESPONSE_RELEASE 6666
+#define	RPC_RESPONSE_GENERAL_ERROR 1111
 
 typedef struct remote_memory_object
 {
   void *ptr;
   size_t rsize;
+  size_t num_clients;
   remote_memory_object(){}
-  remote_memory_object(void* p, size_t s)
-    :ptr(p), rsize(s) {}
+  remote_memory_object(void* p, size_t s, size_t n=0)
+    :ptr(p), rsize(s), num_clients(n) {}
 } RemoteMemoryObject;
 
 
 /* global for each server */
-static  bool has_server_setup;
-static bool has_client_setup ; 
-static margo_instance_id mid;
-static hg_id_t umap_request_rpc_id;
-static hg_id_t umap_read_rpc_id;
-static hg_id_t umap_write_rpc_id;
+//static  bool has_server_setup;
+//static bool has_client_setup ; 
 
 typedef std::map<std::string, RemoteMemoryObject> ResourcePool;
 
@@ -68,6 +67,14 @@ MERCURY_GEN_PROC(umap_request_rpc_in_t,
 
 /* UMap RPC output structure */
 MERCURY_GEN_PROC(umap_request_rpc_out_t,
+		 ((int32_t)(ret)))
+
+/* UMap RPC input structure */
+MERCURY_GEN_PROC(umap_release_rpc_in_t,
+		 ((hg_const_string_t)(id)))
+
+/* UMap RPC output structure */
+MERCURY_GEN_PROC(umap_release_rpc_out_t,
 		 ((int32_t)(ret)))
 
 #ifdef __cplusplus

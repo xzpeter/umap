@@ -46,7 +46,7 @@ namespace Umap {
     }
 
     /* Try to register the new resource */
-    int ret = server_add_resource(id, _ptr, rsize);
+    int ret = server_add_resource(id, _ptr, rsize, _num_clients);
     assert( ret==0 );
   }
 
@@ -93,11 +93,8 @@ namespace Umap {
     UMAP_LOG(Info, "Client "<< client_id <<" deleting: " << id);
     
     /* send a request of 0 byte to the server to signal termination */
-    int   server_id = 0;      
-    client_read_from_server(server_id, id, NULL, 0, 0);
-
-    /* Try to remove the new resource */
-    int ret = client_delete_resource(id);
+    /* TODO: a blocking operation currently */
+    int ret = client_release_resource(id);
     assert( ret==0 );
   }
     

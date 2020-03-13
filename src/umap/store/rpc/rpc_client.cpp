@@ -11,9 +11,15 @@
 #include "rpc_client.hpp"
 #include "rpc_util.hpp"
 
-static std::map<int, hg_addr_t> server_map;
+static margo_instance_id mid;
+static hg_id_t umap_request_rpc_id;
+static hg_id_t umap_release_rpc_id;
+static hg_id_t umap_read_rpc_id;
+static hg_id_t umap_write_rpc_id;
+
 static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 static int client_id=-1;
+static std::map<int, hg_addr_t> server_map;
 
 void print_client_memory_pool()
 {
@@ -23,9 +29,9 @@ void print_client_memory_pool()
 	     <<(it.second).ptr << ", " <<(it.second).rsize);
 }
 
-bool client_check_resource(const char*id){
+/* Validate no duplicate remote memory object has been registered the pool */
+bool client_check_resource(const char* id){
 
-  /* Register the remote memory object to the pool */
   if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
     return false;
   }
@@ -33,6 +39,61 @@ bool client_check_resource(const char*id){
   return true;
 }
 
+
+/* Send request to the server */
+/* a blocking operation returns */
+/* when the response from server arrives */
+bool client_request_resource(const char* id, size_t rsize){
+
+  /* TODO: management of the server list*/
+  int server_id = 0;
+  auto it = server_map.find(server_id);
+  assert( it!=server_map.end());  
+  hg_addr_t server_address = it->second;
+  
+  /* Create a RPC handle */
+  hg_return_t ret;
+  hg_handle_t handle;
+  ret = margo_create(mid,
+		     server_address,
+		     umap_request_rpc_id,
+		     &handle);
+  assert(ret == HG_SUCCESS);
+
+  /* Create input structure */
+  umap_request_rpc_in_t in;
+  in.id = strdup(id);
+  in.size = rsize;
+  
+  /* Forward RPC requst to the server */
+  ret = margo_forward(handle, &in);
+  assert(ret == HG_SUCCESS);
+    
+  /* verify the response */
+  umap_request_rpc_out_t out;
+  ret = margo_get_output(handle, &out);
+  assert(ret == HG_SUCCESS);
+  
+  if( out.ret==RPC_RESPONSE_REQ_AVAIL){
+    margo_free_output(handle, &out);
+ 
+    /* Free handle and bulk handles*/
+    ret = margo_destroy(handle);
+    assert(ret == HG_SUCCESS);
+  
+    return true;
+  }else if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
+    UMAP_ERROR("The requested "<< id <<" is unavailable.");
+  }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
+    UMAP_ERROR("The requested "<< id <<" has mismatched size.");
+  }else{
+    UMAP_ERROR("Unrecognized return message ... ");
+  }
+  
+  return false;
+}
+
+/* Register the remote memory to the pool */
 void client_add_resource(const char*id, void* ptr, size_t rsize){
 
   remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize));
@@ -40,15 +101,62 @@ void client_add_resource(const char*id, void* ptr, size_t rsize){
 
 }
 
-int client_delete_resource(const char* id){
+/* Delete the memory resource from the pool on the client */
+/* Inform the server about the release of the resource */
+/* TODO: A blocking operation that returns when response arrives */
+int client_release_resource(const char* id){
+
   int ret = 0;
   
-  assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
-  remote_memory_pool.erase(id);
-  print_client_memory_pool();
+  if( remote_memory_pool.find(id)==remote_memory_pool.end() ){
+    UMAP_ERROR(id<<" is not found in the pool");
+    ret = -1;
+  }
+
+
+  /* Start informing the server */
+  /* TODO: management of the server list*/
+  int server_id = 0;
+  auto it = server_map.find(server_id);
+  assert( it!=server_map.end());  
+  hg_addr_t server_address = it->second;
   
+  /* Create a RPC handle */
+  hg_return_t hret;
+  hg_handle_t handle;
+  hret = margo_create(mid,
+		     server_address,
+		     umap_release_rpc_id,
+		     &handle);
+  assert(hret == HG_SUCCESS);
+
+  /* Create input structure */
+  umap_release_rpc_in_t in;
+  in.id = strdup(id);
+  
+  /* Forward RPC requst to the server */
+  hret = margo_forward(handle, &in);
+  assert(hret == HG_SUCCESS);
+    
+  /* verify the response */
+  /* TODO: should the client wait for the reponse? */
+  umap_release_rpc_out_t out;
+  hret = margo_get_output(handle, &out);
+  assert(hret == HG_SUCCESS);
+  
+  if( out.ret==RPC_RESPONSE_RELEASE){
+    remote_memory_pool.erase(id);
+    print_client_memory_pool();
+  }else{
+    UMAP_ERROR("the server failed to release "<<id);
+    ret = -1;
+  }
+  /* End of informing the server*/
+
+
+  /* TODO: shutdown */
   if(remote_memory_pool.size()==0){
-    UMAP_LOG(Info, "shuting down Server " << client_id);
+    UMAP_LOG(Info, "shuting down Client " << client_id);
     client_fini();
   }
   
@@ -171,6 +279,11 @@ void client_init(void)
 				       umap_request_rpc_out_t,
 				       NULL);
 
+    umap_release_rpc_id = MARGO_REGISTER(mid, "umap_release_rpc",
+				    umap_release_rpc_in_t,
+				    umap_release_rpc_out_t,
+				    NULL);
+
     umap_read_rpc_id = MARGO_REGISTER(mid, "umap_read_rpc",
 				       umap_read_rpc_in_t,
 				       umap_read_rpc_out_t,
@@ -197,53 +310,6 @@ void client_fini(void)
   //free(ctx);
 }
 
-bool client_request_resource(const char* id, size_t rsize){
-
-  /* TODO: management of the server list*/
-  int server_id = 0;
-  auto it = server_map.find(server_id);
-  assert( it!=server_map.end());  
-  hg_addr_t server_address = it->second;
-  
-  /* Create a RPC handle */
-  hg_return_t ret;
-  hg_handle_t handle;
-  ret = margo_create(mid, server_address, umap_request_rpc_id, &handle);
-  assert(ret == HG_SUCCESS);
-
-  /* Create input structure */
-  umap_request_rpc_in_t in;
-  in.id = strdup(id);
-  in.size = rsize;
-  in.id   = strdup(id);    
-  
-  /* Forward RPC requst to the server */
-  ret = margo_forward(handle, &in);
-  assert(ret == HG_SUCCESS);
-    
-  /* verify the response */
-  umap_request_rpc_out_t out;
-  ret = margo_get_output(handle, &out);
-  assert(ret == HG_SUCCESS);
-  
-  if( out.ret==RPC_RESPONSE_REQ_AVAIL){
-    margo_free_output(handle, &out);
- 
-    /* Free handle and bulk handles*/
-    ret = margo_destroy(handle);
-    assert(ret == HG_SUCCESS);
-  
-    return true;
-  }else if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
-    UMAP_ERROR("The requested "<< id <<" is unavailable.");
-  }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
-    UMAP_ERROR("The requested "<< id <<" has mismatched size.");
-  }else{
-    UMAP_ERROR("Unrecognized return message ... ");
-  }
-  
-  return false;
-}
 
 int client_read_from_server(int server_id, const char* id, void *buf_ptr, size_t nbytes, off_t offset){
 

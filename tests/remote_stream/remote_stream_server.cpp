@@ -76,12 +76,9 @@ int main(int argc, char **argv)
   Umap::Store* ds1  = new Umap::StoreNetworkServer("arr_b", arr1, array_length);
   std::cout << "ds1 is Registed " << std::endl;
 
-  int periods = 50;
-  while((periods)>0){
 
-    std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
-    sleep(3);
-  }
+  //std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
+  sleep(20);
 
   
   /* Free the network dastore */
