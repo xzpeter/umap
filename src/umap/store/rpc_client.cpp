@@ -213,14 +213,24 @@ bool client_request_resource(const char* id, size_t rsize){
   umap_request_rpc_out_t out;
   ret = margo_get_output(handle, &out);
   assert(ret == HG_SUCCESS);
-  assert( out.ret=8888);
-  margo_free_output(handle, &out);
- 
-  /* Free handle and bulk handles*/
-  ret = margo_destroy(handle);
-  assert(ret == HG_SUCCESS);
   
-  return true;
+  if( out.ret==RPC_RESPONSE_REQ_AVAIL){
+    margo_free_output(handle, &out);
+ 
+    /* Free handle and bulk handles*/
+    ret = margo_destroy(handle);
+    assert(ret == HG_SUCCESS);
+  
+    return true;
+  }else if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
+    UMAP_ERROR("The requested "<< id <<" is unavailable.");
+  }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
+    UMAP_ERROR("The requested "<< id <<" has size mismatched.");
+  }else{
+    UMAP_ERROR("Unrecognized return message ... ");
+  }
+  
+  return false;
 }
 
 int client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset){
@@ -270,7 +280,7 @@ int client_read_from_server(int server_id, void *buf_ptr, size_t nbytes, off_t o
   umap_read_rpc_out_t out;
   ret = margo_get_output(handle, &out);
   assert(ret == HG_SUCCESS);
-  assert( out.ret=1234);
+  assert( out.ret=RPC_RESPONSE_READ_DONE);
   margo_free_output(handle, &out);
  
   /* Free handle and bulk handles*/
@@ -332,7 +342,7 @@ int client_write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t of
   umap_write_rpc_out_t out;
   ret = margo_get_output(handle, &out);
   assert(ret == HG_SUCCESS);
-  assert( out.ret=4321);
+  assert( out.ret=RPC_RESPONSE_WRITE_DONE);
   margo_free_output(handle, &out);
  
   /* Free handle and bulk handles*/
