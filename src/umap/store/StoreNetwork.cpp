@@ -15,9 +15,9 @@
 #include "umap/store/Store.hpp"
 #include "umap/util/Macros.hpp"
 
-#include "rpc_util.hpp"
-#include "rpc_server.hpp"
-#include "rpc_client.hpp"
+#include "rpc/rpc_util.hpp"
+#include "rpc/rpc_server.hpp"
+#include "rpc/rpc_client.hpp"
 
 
 namespace Umap {

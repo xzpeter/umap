@@ -21,9 +21,9 @@ set(umapheaders
       WorkerPool.hpp
       store/StoreFile.h
       store/StoreNetwork.h
-      store/rpc_server.hpp
-      store/rpc_client.hpp
-      store/rpc_util.hpp
+      store/rpc/rpc_server.hpp
+      store/rpc/rpc_client.hpp
+      store/rpc/rpc_util.hpp
       store/Store.hpp
       util/Exception.hpp
       util/Logger.hpp
@@ -41,8 +41,8 @@ set(umapsrc
     store/Store.cpp
     store/StoreFile.cpp
     store/StoreNetwork.cpp
-    store/rpc_server.cpp
-    store/rpc_client.cpp
+    store/rpc/rpc_server.cpp
+    store/rpc/rpc_client.cpp
     util/Exception.cpp
     util/Logger.cpp
     ${umapheaders})
