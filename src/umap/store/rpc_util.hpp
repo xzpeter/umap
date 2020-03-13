@@ -31,7 +31,7 @@ static hg_id_t umap_request_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
-typedef std::map<std::string, RemoteMemoryObject> ResourcePool;
+typedef std::map<hg_const_string_t, RemoteMemoryObject> ResourcePool;
 
 
 #ifdef __cplusplus
@@ -40,7 +40,7 @@ extern "C" {
 
 /* UMap RPC input structure */
 MERCURY_GEN_PROC(umap_read_rpc_in_t,
-                 ((hg_string_t)(id))\
+                 ((hg_const_string_t)(id))\
                  ((hg_size_t)(size))\
                  ((hg_size_t)(offset))\
                  ((hg_bulk_t)(bulk_handle)))
@@ -51,7 +51,7 @@ MERCURY_GEN_PROC(umap_read_rpc_out_t,
 
 /* UMap RPC input structure */
 MERCURY_GEN_PROC(umap_write_rpc_in_t,
-                 ((hg_string_t)(id))\
+                 ((hg_const_string_t)(id))\
                  ((hg_size_t)(size))\
                  ((hg_size_t)(offset))\
                  ((hg_bulk_t)(bulk_handle)))
@@ -62,7 +62,7 @@ MERCURY_GEN_PROC(umap_write_rpc_out_t,
 
 /* UMap RPC input structure */
 MERCURY_GEN_PROC(umap_request_rpc_in_t,
-		 ((hg_string_t)(id))\
+		 ((hg_const_string_t)(id))\
                  ((hg_size_t)(size)))
 
 /* UMap RPC output structure */

@@ -10,7 +10,6 @@
 #include "StoreNetwork.h"
 #include <iostream>
 #include <sstream>
-#include <string.h>
 #include <cassert>
 
 #include "umap/store/Store.hpp"
@@ -22,6 +21,7 @@
 
 
 namespace Umap {
+  /* gloabl */
   bool has_server_setup = false;
   bool has_client_setup = false;
   
@@ -30,12 +30,13 @@ namespace Umap {
    * create a remote memory object on the server 
    * init the server connection if not setup
    */
-  StoreNetworkServer::StoreNetworkServer(hg_string_t _id,
+  StoreNetworkServer::StoreNetworkServer(const char* _id,
 					 void* _ptr,
 					 std::size_t _rsize_,
 					 std::size_t _num_clients)
     :StoreNetwork(_id, _rsize_, true)
   {
+    /* TODO: thread-safety */
     /* setup Margo connect */
     /* is done once only */
     if( !has_server_setup ){
@@ -51,19 +52,18 @@ namespace Umap {
 
   StoreNetworkServer::~StoreNetworkServer()
   {
+    /* TODO: thread-safety */
     UMAP_LOG(Info, "Server "<< server_id << " is deleting: " << id);
-
-
+    
     /* Try to remove the new resource */
     int ret = server_delete_resource(id);
     assert( ret==0 );
-
   }
   
-  StoreNetworkClient::StoreNetworkClient(hg_string_t _id, std::size_t _rsize_)
+  StoreNetworkClient::StoreNetworkClient(const char* _id, std::size_t _rsize_)
     :StoreNetwork(_id, _rsize_, false)
   {
-    
+    /* TODO: thread-safety : need to release lock when requesting the server */
     /* setup Margo connect */
     /* is done once only */
     if( !has_client_setup ){      
@@ -89,7 +89,7 @@ namespace Umap {
 
   StoreNetworkClient::~StoreNetworkClient()
   {
-
+    /* TODO: thread-safety */
     UMAP_LOG(Info, "Client "<< client_id <<" deleting: " << id);
     
     /* send a request of 0 byte to the server to signal termination */
@@ -99,10 +99,9 @@ namespace Umap {
     /* Try to remove the new resource */
     int ret = client_delete_resource(id);
     assert( ret==0 );
-
   }
     
-  StoreNetwork::StoreNetwork( hg_string_t _id,
+  StoreNetwork::StoreNetwork( const char* _id,
 			      std::size_t _rsize_,
 			      bool _is_on_server)
     :id(_id),

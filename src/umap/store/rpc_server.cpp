@@ -17,7 +17,6 @@ static const char* PROTOCOL_MARGO_VERBS = "ofi+verbs://";
 static const char* PROTOCOL_MARGO_TCP   = "bmi+tcp://";
 static const char* PROTOCOL_MARGO_MPI   = "mpi+static";
 
-//static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 static ResourcePool remote_memory_pool;
 static int server_id=-1;
 static int num_completed_clients=0;
@@ -31,27 +30,43 @@ void print_server_memory_pool()
 	     <<(it.second).ptr << ", " <<(it.second).rsize);
 }
 
-int server_add_resource(const char*id, void* ptr, size_t rsize){
+/* A local function called by the server */
+/* to add a memory resource to the pool */
+int server_add_resource(const char* id,
+			void* ptr,
+			size_t rsize)
+{
 
   int ret = 0;
-  std::string key(id);
-
-  /* Register the remote memory object to the pool */
-  if( remote_memory_pool.find(key)!=remote_memory_pool.end() ){
-    UMAP_ERROR("Cannot create datastore with duplicated name: "<< key);
-    return -1;
-  }
-  remote_memory_pool.emplace(key, RemoteMemoryObject(ptr, rsize) );
   
+  /* Ensure no duplicated resource */
+  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
+  if( it!=remote_memory_pool.end() ){
+    UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
+    ret = -1;
+  }
+  
+  /* Register the remote memory object to the pool */
+  remote_memory_pool.emplace((hg_const_string_t)id, RemoteMemoryObject(ptr, rsize) );  
   print_server_memory_pool();
+  
   return ret;
 }
 
-int server_delete_resource(const char* id){
+/* Remove a resource from the pool */
+/* TODO: shall the server shutdown if the pool is empty */
+int server_delete_resource(const char* id)
+{
+
   int ret = 0;
-  
-  assert(remote_memory_pool.find(id)!=remote_memory_pool.end());
-  remote_memory_pool.erase(id);
+
+  /* Should removing a non-exist resource be allowed? */
+  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
+  if( it==remote_memory_pool.end() ){
+    UMAP_ERROR("Try to delete " << id <<" not found in the pool" );
+    ret = -1;
+  }
+  remote_memory_pool.erase(it);
   print_server_memory_pool();
   
   if(remote_memory_pool.size()==0){
@@ -74,13 +89,11 @@ void publish_server_addr(const char* addr)
     }
 }
 
-char* get_memory_object(std::string id, size_t offset, size_t size)
+void* get_resource(const char* id, size_t offset, size_t size)
 {
-  char* ptr = NULL;
-  UMAP_LOG(Info, "1Request id"<<id);
-
-  ResourcePool::iterator it = remote_memory_pool.find(id);
-  UMAP_LOG(Info, "2Request id"<<id);
+  
+  void* ptr = NULL;
+  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)id);
 
   if( it==remote_memory_pool.end() ){
     /*TODO */
@@ -91,7 +104,7 @@ char* get_memory_object(std::string id, size_t offset, size_t size)
   RemoteMemoryObject obj = it->second;
   assert( obj.ptr!=NULL);
   assert( (offset+size) <= obj.rsize );
-  ptr = (char*)obj.ptr;
+  ptr = obj.ptr;
   
   return ptr;
 }
@@ -126,7 +139,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Info, "request "<<input.id<<" of "<<input.size<<" bytes at offset "<< input.offset);
+  UMAP_LOG(Info, "request " << input.id << " [" << input.offset << ", "<<input.size<<" ]\n");
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -141,18 +154,17 @@ static int umap_server_read_rpc(hg_handle_t handle)
   }else{
 
     /* Verify that the request is valid */
-    std::string key(input.id);
-    UMAP_LOG(Info,"key " << key);
-    char* server_buf_ptr = get_memory_object(key,
-					     input.offset,
-					     input.size);
-
+    void* server_buf_ptr = get_resource(input.id,
+					input.offset,
+					input.size);
+    assert(server_buf_ptr!=NULL);
+					
     /* register memeory for bulk transfer */
     /* TODO: multiple bulk handlers might been */
     /*       created on overlapping memory regions */
     /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
     hg_bulk_t server_bulk_handle;
-    void* server_buffer_ptr = server_buf_ptr + input.offset;
+    void* server_buffer_ptr = (char*)server_buf_ptr + input.offset;
     void **buf_ptrs = (void **) &(server_buffer_ptr);
     ret = margo_bulk_create(mid,
 			    1, buf_ptrs,&(input.size),
@@ -237,16 +249,17 @@ static int umap_server_write_rpc(hg_handle_t handle)
   assert(input.size>0);
 
   /* Verify that the request is valid */
-  char* server_buf_ptr = get_memory_object(input.id,
-					   input.offset,
-					   input.size);
+  void* server_buf_ptr = get_resource(input.id,
+				      input.offset,
+				      input.size);
+  assert(server_buf_ptr != NULL);
   
   /* register memeory for bulk transfer */
   /* TODO: multiple bulk handlers might been */
   /*       created on overlapping memory regions */
   /*       Reuse bulk handle or merge multiple buffers into one bulk handle*/
   hg_bulk_t server_bulk_handle;
-  void* server_buffer_ptr = server_buf_ptr + input.offset;
+  void* server_buffer_ptr = (char*)server_buf_ptr + input.offset;
   void **buf_ptrs = (void **) &(server_buffer_ptr);
   ret = margo_bulk_create(mid,
 			  1, buf_ptrs,&(input.size),
@@ -306,9 +319,6 @@ static int umap_server_request_rpc(hg_handle_t handle)
   /* margo instance id is similar to mercury context */
   const struct hg_info* info = margo_get_info(handle);
   assert(info);
-  /* TODO: is this check necessary? */
-  margo_instance_id mid = margo_hg_info_get_instance(info);
-  assert(mid != MARGO_INSTANCE_NULL);
       
   /* Get input parameter */
   umap_request_rpc_in_t in;
@@ -318,29 +328,27 @@ static int umap_server_request_rpc(hg_handle_t handle)
   }
   UMAP_LOG(Info, " received a request ["<<in.id<<", "<<in.size<<"]" );
 
-  print_server_memory_pool();
   
   umap_request_rpc_out_t output;
-  
   /* Check whether the server has published the requested memory object */
-  std::string key(in.id);
-  if( remote_memory_pool.find(key) != remote_memory_pool.end() ){
-    UMAP_LOG(Info, " 333333333received a request ["<<in.id<<", "<<in.size<<"]" );
+  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)in.id);  
+  if( it != remote_memory_pool.end() ){
 
     /* Check whether the size match the record */
     /* TODO: shall we allow request with size smaller */
-    if( in.size == remote_memory_pool[key].rsize ){
+    if( in.size == (it->second).rsize ){
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
     }else{
       output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
       UMAP_LOG(Info, in.id << " on the Server has size="
-	                   << remote_memory_pool[key].rsize
+	                   << (it->second).rsize
 	                   << ", but request size="<<in.size)
     }
     
   }else{
     output.ret  = RPC_RESPONSE_REQ_UNAVAIL;
     UMAP_LOG(Info, in.id << " has not been published by the Server");
+    print_server_memory_pool();
   }
 
   /* Inform the client about the decison */
