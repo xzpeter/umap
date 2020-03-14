@@ -147,7 +147,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Info, "request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
+  //UMAP_LOG(Info, "request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
   
   /* the client signal termination
   * there is no built in functon in margo

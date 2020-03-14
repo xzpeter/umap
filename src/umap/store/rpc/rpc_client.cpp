@@ -110,18 +110,18 @@ int client_release_resource(const char* id){
   
   if( remote_memory_pool.find(id)==remote_memory_pool.end() ){
     UMAP_ERROR(id<<" is not found in the pool");
-    ret = -1;
+    return -1;
   }
 
 
-  /* Start informing the server */
-  /* TODO: management of the server list*/
+  /* Start informing the server
+  /* TODO: management of the server list
   int server_id = 0;
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
   
-  /* Create a RPC handle */
+  /* Create a RPC handle 
   hg_return_t hret;
   hg_handle_t handle;
   hret = margo_create(mid,
@@ -130,29 +130,29 @@ int client_release_resource(const char* id){
 		     &handle);
   assert(hret == HG_SUCCESS);
 
-  /* Create input structure */
+  /* Create input structure
   umap_release_rpc_in_t in;
   in.id = strdup(id);
   
-  /* Forward RPC requst to the server */
+  /* Forward RPC requst to the server
   hret = margo_forward(handle, &in);
   assert(hret == HG_SUCCESS);
     
-  /* verify the response */
-  /* TODO: should the client wait for the reponse? */
+  /* verify the response 
+  /* TODO: should the client wait for the reponse? 
   umap_release_rpc_out_t out;
   hret = margo_get_output(handle, &out);
   assert(hret == HG_SUCCESS);
   
   if( out.ret==RPC_RESPONSE_RELEASE){
-    remote_memory_pool.erase(id);
     print_client_memory_pool();
   }else{
     UMAP_ERROR("the server failed to release "<<id);
-    ret = -1;
+    return -1;
   }
   /* End of informing the server*/
 
+  remote_memory_pool.erase(id);
 
   /* TODO: shutdown */
   if(remote_memory_pool.size()==0){

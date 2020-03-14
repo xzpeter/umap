@@ -93,22 +93,26 @@ int main(int argc, char **argv)
   cout << "Rank " << rank << " hostname " << hostname << "\n";
   cout << "Rank " << rank << " arr_a "<< arr_a << " arr_b "<< arr_b
        <<", Map Time [us]: "<< timing_map.count() <<"\n"<<std::flush;
+
+  const size_t num_elements = array_length/sizeof(ELEMENT_TYPE);
+  size_t num_elements_per_client = (num_elements-1)/num_proc + 1;
+  size_t id_st = num_elements_per_client*rank;
+  size_t id_end = id_st + num_elements_per_client;
+  id_end = (id_end>num_elements) ?num_elements : id_end;
+  cout << "Rank " << rank << " arr[ " << id_st <<", " << id_end << ") \n";
   MPI_Barrier(MPI_COMM_WORLD);
 
 
-  const size_t num_elements = array_length/sizeof(ELEMENT_TYPE);
   ELEMENT_TYPE *a = (ELEMENT_TYPE *) arr_a;
   ELEMENT_TYPE *b = (ELEMENT_TYPE *) arr_b;
   ELEMENT_TYPE *c = (ELEMENT_TYPE *) malloc(array_length);
   assert( c!=NULL);
-
   
   /* Main loop: update num_updates times to the buffer for num_periods times */
   auto timing_update_st = high_resolution_clock::now();      
   for( int p=0; p<num_repeats; p++ ){
-
 #pragma omp parallel for
-    for(size_t i=0; i < num_elements; i++){
+    for(size_t i=id_st; i<id_end; i++){
       c[i] = a[i] + b[i];
     }
   }
@@ -121,7 +125,8 @@ int main(int argc, char **argv)
   cout << "Rank " << rank
        << " Bandwidth [MB/s] : " << bytes*1.0/time 
        << " Ave. time [us] : "   << time
-       << " c["<< (num_elements/2) <<"]="<< c[num_elements/2] <<std::endl;
+       << " c["<< (id_st+id_end)/2 <<"]="<< c[(id_st+id_end)/2] <<std::endl;
+  assert( c[(id_st+id_end)/2] == 3);
   MPI_Barrier(MPI_COMM_WORLD);
   
   /* Unmap file */
