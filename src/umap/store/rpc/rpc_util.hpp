@@ -18,22 +18,28 @@
 #define RPC_RESPONSE_RELEASE 6666
 #define	RPC_RESPONSE_GENERAL_ERROR 1111
 
-typedef struct remote_memory_object
+typedef struct remote_resource
+{
+  size_t rsize;
+  size_t server_stride;
+  remote_resource(){}
+  remote_resource(size_t s, size_t n)
+    :rsize(s), server_stride(n) {}
+} RemoteResource;
+
+typedef std::map<std::string, RemoteResource> ClientResourcePool;
+
+typedef struct local_resource
 {
   void *ptr;
   size_t rsize;
   size_t num_clients;
-  remote_memory_object(){}
-  remote_memory_object(void* p, size_t s, size_t n=0)
+  local_resource(){}
+  local_resource(void* p, size_t s, size_t n=0)
     :ptr(p), rsize(s), num_clients(n) {}
-} RemoteMemoryObject;
+} LocalResource;
 
-
-/* global for each server */
-//static  bool has_server_setup;
-//static bool has_client_setup ; 
-
-typedef std::map<std::string, RemoteMemoryObject> ResourcePool;
+typedef std::map<std::string, LocalResource> ServerResourcePool;
 
 
 #ifdef __cplusplus

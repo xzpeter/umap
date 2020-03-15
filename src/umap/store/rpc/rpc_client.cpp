@@ -17,23 +17,24 @@ static hg_id_t umap_release_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
-static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
+static ClientResourcePool resource_pool;
 static int client_id=-1;
 static std::map<int, char*> server_str_map;
 static std::map<int, hg_addr_t> server_map;
 
 void print_client_memory_pool()
 {
-  for(auto it : remote_memory_pool)
+  for(auto it : resource_pool)
     UMAP_LOG(Info, "Client "<< client_id
 	     <<" pool[ " << it.first << " ] :: "
-	     <<(it.second).ptr << ", " <<(it.second).rsize);
+	     <<"size=" << (it.second).rsize
+	     << ", server_stride=" << (it.second).server_stride);
 }
 
 /* Validate no duplicate remote memory object has been registered the pool */
 bool client_check_resource(const char* id){
 
-  if( remote_memory_pool.find(id)!=remote_memory_pool.end() ){
+  if( resource_pool.find(id)!=resource_pool.end() ){
     return false;
   }
   
@@ -46,58 +47,78 @@ bool client_check_resource(const char* id){
 /* when the response from server arrives */
 bool client_request_resource(const char* id, size_t rsize){
 
-  /* TODO: management of the server list*/
-  int server_id = 0;
-  auto it = server_map.find(server_id);
-  assert( it!=server_map.end());  
-  hg_addr_t server_address = it->second;
-  
-  /* Create a RPC handle */
-  hg_return_t ret;
-  hg_handle_t handle;
-  ret = margo_create(mid,
-		     server_address,
-		     umap_request_rpc_id,
-		     &handle);
-  assert(ret == HG_SUCCESS);
+  bool flag = true;
+
+  size_t num_servers = server_map.size();
+  assert(num_servers>0);
+  assert(rsize%num_servers==0);
 
   /* Create input structure */
   umap_request_rpc_in_t in;
   in.id = strdup(id);
-  in.size = rsize;
-  
-  /* Forward RPC requst to the server */
-  ret = margo_forward(handle, &in);
-  assert(ret == HG_SUCCESS);
+  in.size = rsize/num_servers;
+
+  /* send request to the server list*/
+  hg_handle_t handle_list[num_servers];
+  int i=0;
+  for(auto it : server_map){
     
-  /* verify the response */
-  umap_request_rpc_out_t out;
-  ret = margo_get_output(handle, &out);
-  assert(ret == HG_SUCCESS);
+    int server_id = it.first;
+    hg_addr_t server_address = it.second;
   
-  if( out.ret==RPC_RESPONSE_REQ_AVAIL){
-    margo_free_output(handle, &out);
- 
-    /* Free handle and bulk handles*/
-    ret = margo_destroy(handle);
+    /* Create a RPC handle */
+    hg_return_t ret;
+    ret = margo_create(mid,
+		       server_address,
+		       umap_request_rpc_id,
+		       &(handle_list[i]));
     assert(ret == HG_SUCCESS);
   
-    return true;
-  }else if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
-    UMAP_ERROR("The requested "<< id <<" is unavailable.");
-  }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
-    UMAP_ERROR("The requested "<< id <<" has mismatched size.");
-  }else{
-    UMAP_ERROR("Unrecognized return message ... ");
+    /* Forward RPC requst to the server */
+    ret = margo_forward(handle_list[i], &in);
+    assert(ret == HG_SUCCESS);
+
+    i++;
+  }
+
+  
+  /* verify the response from all servers */
+  for( i=0;i<num_servers;i-- ){
+
+    /* Create output structure */
+    umap_request_rpc_out_t out;
+    hg_return_t ret;
+    ret = margo_get_output(handle_list[i], &out);
+    assert(ret == HG_SUCCESS);
+
+    if( out.ret==RPC_RESPONSE_REQ_AVAIL){
+ 
+    }else{
+      if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
+	UMAP_LOG(Warning, "The requested "<< id <<" is unavailable.");
+      }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
+	UMAP_LOG(Warning, "The requested "<< id <<" has mismatched size.");
+      }else{
+	UMAP_LOG(Warning, "Unrecognized return message ... ");
+      }
+      flag = false;
+    }
+
+    /* Free output structure */
+    margo_free_output(handle_list[i], &out);
+
+    /* Free handle handles*/
+    ret = margo_destroy(handle_list[i]);
+    assert(ret == HG_SUCCESS);    
   }
   
-  return false;
+  return flag;
 }
 
 /* Register the remote memory to the pool */
 void client_add_resource(const char*id, void* ptr, size_t rsize){
-
-  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize));
+  assert(rsize % server_map.size() == 0);
+  resource_pool.emplace(id, RemoteResource(rsize, rsize/server_map.size()));
   print_client_memory_pool();
 
 }
@@ -109,7 +130,7 @@ int client_release_resource(const char* id){
 
   int ret = 0;
   
-  if( remote_memory_pool.find(id)==remote_memory_pool.end() ){
+  if( resource_pool.find(id)==resource_pool.end() ){
     UMAP_ERROR(id<<" is not found in the pool");
     return -1;
   }
@@ -153,10 +174,10 @@ int client_release_resource(const char* id){
   }
   /* End of informing the server*/
 
-  remote_memory_pool.erase(id);
+  resource_pool.erase(id);
 
   /* TODO: shutdown */
-  if(remote_memory_pool.size()==0){
+  if(resource_pool.size()==0){
     UMAP_LOG(Info, "shuting down Client " << client_id);
     client_fini();
   }
@@ -319,14 +340,14 @@ void client_fini(void)
 
 int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t offset){
 
-  RemoteMemoryObject &obj = remote_memory_pool[id];
-  const size_t server_portion = obj.rsize/server_map.size();
-  int server_id = offset/server_portion;
-  offset -= server_id*server_portion;
+  RemoteResource &obj = resource_pool[id];
+  int server_id = offset/obj.server_stride;
+  offset -= server_id * obj.server_stride;
+  
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
-  hg_return_t ret;
+
   
   /* Forward the RPC. umap_client_fwdcompleted_cb will be called
    * when receiving the response from the server
@@ -334,6 +355,7 @@ int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t 
    * completion queue and can be triggered using HG_Trigger().
    */
   /* Create a RPC handle */
+  hg_return_t ret;
   hg_handle_t handle;
   ret = margo_create(mid, server_address, umap_read_rpc_id, &handle);
   assert(ret == HG_SUCCESS);

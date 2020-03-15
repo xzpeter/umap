@@ -23,13 +23,13 @@ static hg_id_t umap_release_rpc_id;
 static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
-static ResourcePool remote_memory_pool;
+static ServerResourcePool resource_pool;
 static int num_servers=-1;
 static int server_id=-1;
 
 void print_server_memory_pool()
 {
-  for(auto it : remote_memory_pool)
+  for(auto it : resource_pool)
     UMAP_LOG(Info, "Server "<< server_id << " pool[ " << it.first << " ] :: "
 	                    <<(it.second).ptr << ", " <<(it.second).rsize << ", " <<(it.second).num_clients);
 }
@@ -45,14 +45,14 @@ int server_add_resource(const char* id,
   int ret = 0;
   
   /* Ensure no duplicated resource */
-  ResourcePool::iterator it = remote_memory_pool.find(id);
-  if( it!=remote_memory_pool.end() ){
+  ServerResourcePool::iterator it = resource_pool.find(id);
+  if( it!=resource_pool.end() ){
     UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     ret = -1;
   }
   
   /* Register the remote memory object to the pool */
-  remote_memory_pool.emplace(id, RemoteMemoryObject(ptr, rsize, num_clients) );  
+  resource_pool.emplace(id, LocalResource(ptr, rsize, num_clients) );  
   print_server_memory_pool();
   
   return ret;
@@ -66,8 +66,8 @@ int server_delete_resource(const char* id)
   int ret = 0;
 
   /* Should removing a non-exist resource be allowed? */
-  ResourcePool::iterator it = remote_memory_pool.find(id);
-  if( it==remote_memory_pool.end() ){
+  ServerResourcePool::iterator it = resource_pool.find(id);
+  if( it==resource_pool.end() ){
     UMAP_ERROR("Try to delete " << id <<" not found in the pool" );
     ret = -1;
   }
@@ -75,10 +75,10 @@ int server_delete_resource(const char* id)
   while( (it->second).num_clients!=0 ){
     sleep(3);
   }
-  remote_memory_pool.erase(it);
+  resource_pool.erase(it);
   print_server_memory_pool();
   
-  if(remote_memory_pool.size()==0){
+  if(resource_pool.size()==0){
     UMAP_LOG(Info, "shuting down Server " << server_id);
     server_fini();
   }
@@ -124,15 +124,15 @@ void* get_resource(const char* id, size_t offset, size_t size)
 {
   
   void* ptr = NULL;
-  ResourcePool::iterator it = remote_memory_pool.find(id);
+  ServerResourcePool::iterator it = resource_pool.find(id);
 
-  if( it==remote_memory_pool.end() ){
+  if( it==resource_pool.end() ){
     /*TODO */
     UMAP_ERROR("Request "<<id<<" not found");
     return ptr;
   }
   
-  RemoteMemoryObject obj = it->second;
+  LocalResource obj = it->second;
   assert( obj.ptr!=NULL);
   assert( (offset+size) <= obj.rsize );
   ptr = obj.ptr;
@@ -357,12 +357,12 @@ static int umap_server_request_rpc(hg_handle_t handle)
   
   umap_request_rpc_out_t output;
   /* Check whether the server has published the requested memory object */
-  ResourcePool::iterator it = remote_memory_pool.find((hg_const_string_t)in.id);  
-  if( it != remote_memory_pool.end() ){
+  ServerResourcePool::iterator it = resource_pool.find((hg_const_string_t)in.id);  
+  if( it != resource_pool.end() ){
 
     /* Check whether the size match the record */
     /* TODO: shall we allow request with size smaller */
-    if( in.size == ((it->second).rsize * num_servers) ){
+    if( in.size == (it->second).rsize ){
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
       (it->second).num_clients ++;
       print_server_memory_pool();
@@ -418,8 +418,8 @@ static int umap_server_release_rpc(hg_handle_t handle)
   umap_release_rpc_out_t output;
 
   /* validate the resoure in the pool */
-  ResourcePool::iterator it = remote_memory_pool.find(in.id);
-  if( it != remote_memory_pool.end() ){
+  ServerResourcePool::iterator it = resource_pool.find(in.id);
+  if( it != resource_pool.end() ){
       output.ret  = RPC_RESPONSE_RELEASE;
 
       /* TODO: Reduce the number of registered clients of that resource */
