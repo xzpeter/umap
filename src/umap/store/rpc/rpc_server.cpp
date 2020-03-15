@@ -24,6 +24,7 @@ static hg_id_t umap_read_rpc_id;
 static hg_id_t umap_write_rpc_id;
 
 static ResourcePool remote_memory_pool;
+static int num_servers=-1;
 static int server_id=-1;
 
 void print_server_memory_pool()
@@ -87,14 +88,36 @@ int server_delete_resource(const char* id)
 
 void publish_server_addr(const char* addr)
 {
+
+  std::string addr_string(addr);
+  assert( addr_string.length() <= MAX_ADDR_LENGTH );
+  char*  server = (char*)malloc(MAX_ADDR_LENGTH);
+  server = strdup(addr);
+  char* servers = (char*)malloc( MAX_ADDR_LENGTH * num_servers);
+  MPI_Allgather(&(server[0]), MAX_ADDR_LENGTH, MPI_CHAR,
+		servers,      MAX_ADDR_LENGTH, MPI_CHAR,
+		MPI_COMM_WORLD);
+
+  if(server_id==0){
+    
     /* write server address to local file for client to read */
     FILE* fp = fopen(LOCAL_RPC_ADDR_FILE, "w+");
     if (fp != NULL) {
-        fprintf(fp, "%s", addr);
-        fclose(fp);
+
+      for(int i=0; i<num_servers; i++){
+	char* server_i = &(servers[i*MAX_ADDR_LENGTH]);
+	UMAP_LOG(Info, "server "<< i << " : " << server_i);
+
+	fprintf(fp, "%s\n", server_i);
+      }
+      fclose(fp);
+      
     } else {
       UMAP_ERROR("Error writing server rpc addr file "<<LOCAL_RPC_ADDR_FILE);
     }
+
+  }
+  
 }
 
 void* get_resource(const char* id, size_t offset, size_t size)
@@ -147,7 +170,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  //UMAP_LOG(Info, "request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
+  UMAP_LOG(Info, "Server "<<server_id<<" request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -329,7 +352,7 @@ static int umap_server_request_rpc(hg_handle_t handle)
   if(ret != HG_SUCCESS){
     UMAP_ERROR("failed to get rpc intput");
   }
-  UMAP_LOG(Info, " received a request ["<<in.id<<", "<<in.size<<"]" );
+  UMAP_LOG(Info, "Server "<<server_id<<" received a request ["<<in.id<<", "<<in.size<<"]" );
 
   
   umap_request_rpc_out_t output;
@@ -339,7 +362,7 @@ static int umap_server_request_rpc(hg_handle_t handle)
 
     /* Check whether the size match the record */
     /* TODO: shall we allow request with size smaller */
-    if( in.size == (it->second).rsize ){
+    if( in.size == ((it->second).rsize * num_servers) ){
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
       (it->second).num_clients ++;
       print_server_memory_pool();
@@ -457,7 +480,7 @@ static void setup_margo_server(){
     margo_addr_free(mid, addr);
     margo_finalize(mid);
   }
-  UMAP_LOG(Info, "Margo RPC server: "<<addr_string);
+  UMAP_LOG(Info, "Margo Server " << server_id << " : " << addr_string);
 
   publish_server_addr(addr_string);
   
@@ -493,7 +516,7 @@ void server_init()
     if( !flag_mpi_initialized )
       MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &server_id);
-    
+    MPI_Comm_size(MPI_COMM_WORLD, &num_servers);
 
     setup_margo_server();
     if (mid == MARGO_INSTANCE_NULL) {

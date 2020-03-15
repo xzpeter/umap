@@ -7,6 +7,8 @@
 #include "mercury_macros.h"
 #include "mercury_proc_string.h"
 
+
+#define MAX_ADDR_LENGTH 64
 #define LOCAL_RPC_ADDR_FILE "serverfile"
 #define RPC_RESPONSE_READ_DONE 1234
 #define	RPC_RESPONSE_WRITE_DONE 4321

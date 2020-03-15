@@ -5,7 +5,7 @@
 void client_init(void);
 void client_fini(void);
 
-int  client_read_from_server(int server_id, const char*id, void *buf_ptr, size_t nbytes, off_t offset);
+int  client_read_from_server(const char*id, void *buf_ptr, size_t nbytes, off_t offset);
 int  client_write_to_server(int server_id, void *buf_ptr, size_t nbytes, off_t offset);
 
 bool client_check_resource(const char*id);

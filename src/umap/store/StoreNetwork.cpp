@@ -139,8 +139,7 @@ namespace Umap {
     size_t rval = 0;
 
     void* buf_ptr = (void*) buf;
-    int   server_id = 0;
-    client_read_from_server(server_id, id, buf_ptr, nbytes, offset);
+    client_read_from_server(id, buf_ptr, nbytes, offset);
     
     return rval;
   }

@@ -19,6 +19,7 @@ static hg_id_t umap_write_rpc_id;
 
 static std::map<const char*, RemoteMemoryObject> remote_memory_pool;
 static int client_id=-1;
+static std::map<int, char*> server_str_map;
 static std::map<int, hg_addr_t> server_map;
 
 void print_client_memory_pool()
@@ -165,40 +166,44 @@ int client_release_resource(const char* id){
 
 
 /* Read the server address published in the file */
-static char* get_server_address_string(){
+/* Record the servers into the map */
+static void get_server_address_string(){
 
-  char* addr = NULL;
+  FILE* fp = fopen(LOCAL_RPC_ADDR_FILE, "r");
 
   /* read server address from local file */
-  FILE* fp = fopen(LOCAL_RPC_ADDR_FILE, "r");
   if (fp != NULL) {
-    char addr_string[256];
-    memset(addr_string, 0, sizeof(addr_string));
-    if (1 == fscanf(fp, "%255s", addr_string)) {
-      addr = strdup(addr_string);
+    int server_id =0;
+    char addr_string[MAX_ADDR_LENGTH];
+    int r = fscanf(fp, "%s\n", addr_string);
+    while(r==1){
+      server_str_map[server_id]=strdup(addr_string);
+      server_id ++;
+      memset(addr_string, 0, MAX_ADDR_LENGTH);
+      r = fscanf(fp, "%s\n", addr_string);
+      UMAP_LOG(Info, "server "<<(server_id-1)<<" "<<server_str_map[server_id-1] );
     }
+    assert(r==EOF);
     fclose(fp);
-  }
-
-  if ( !addr)
+  }else
     UMAP_ERROR("Unable to find local server rpc address ");
-    
-  return addr;
 }
 
 static void setup_margo_client(){
 
   /* get the protocol used by the server */
-  char* server_address_string = get_server_address_string();
+  get_server_address_string();
+  assert(server_str_map.size()>0);
+
+  char* server_address_string = server_str_map[0];
   char* protocol = strdup(server_address_string);
   char* del = strchr(protocol, ';');
   if (del) *del = '\0';
-  UMAP_LOG(Debug, "server :"<<server_address_string<<" protocol: "<<protocol);
+  UMAP_LOG(Info, "server :"<<server_address_string<<" protocol: "<<protocol);
   
   /* Init Margo using server's protocol */
   int use_progress_thread = 1;//flag to use a dedicated thread for running Mercury's progress loop. 
   int rpc_thread_count = 1; //number of threads for running rpc calls
-  //mid = margo_init(protocol, MARGO_SERVER_MODE, use_progress_thread, rpc_thread_count);
   mid = margo_init(protocol, MARGO_CLIENT_MODE, use_progress_thread, rpc_thread_count);
   free(protocol);
   if (mid == MARGO_INSTANCE_NULL) {
@@ -212,21 +217,23 @@ static void setup_margo_client(){
 
   
   /* lookup server address from string */
-  hg_addr_t server_address = HG_ADDR_NULL;
-  margo_addr_lookup(mid, server_address_string, &server_address);
-  //free(server_address_string);
-  if (server_address == HG_ADDR_NULL) {
-    margo_finalize(mid);
-    UMAP_ERROR("Failed to lookup margo server address from string: "<<server_address_string);
+  for(auto it : server_str_map ){
+    int server_id = it.first;
+    char* addr_str = strdup(it.second);
+    hg_addr_t server_address = HG_ADDR_NULL;
+    margo_addr_lookup(mid, addr_str, &server_address);
+    if (server_address == HG_ADDR_NULL) {
+      margo_finalize(mid);
+      UMAP_ERROR("Failed to lookup margo server address from string: "<<addr_str);
+    }
+    server_map[server_id]=server_address;
   }
-  server_map[0]=server_address;
   UMAP_LOG(Info, "margo_init done");
   
   /* Find the address of this client process */
   hg_addr_t client_address;
   hg_return_t ret = margo_addr_self(mid, &client_address);
   if (ret != HG_SUCCESS) {
-    margo_addr_free(mid, server_address);
     margo_finalize(mid);
     UMAP_ERROR("failed to lookup margo_addr_self on client");
   }
@@ -236,7 +243,6 @@ static void setup_margo_client(){
   hg_size_t len = sizeof(client_address_string);
   ret = margo_addr_to_string(mid, client_address_string, &len, client_address);
   if (ret != HG_SUCCESS) {
-    margo_addr_free(mid, server_address);
     margo_addr_free(mid, client_address);
     margo_finalize(mid);
     UMAP_ERROR("failed to convert client address to string");
@@ -311,8 +317,12 @@ void client_fini(void)
 }
 
 
-int client_read_from_server(int server_id, const char* id, void *buf_ptr, size_t nbytes, off_t offset){
+int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t offset){
 
+  RemoteMemoryObject &obj = remote_memory_pool[id];
+  const size_t server_portion = obj.rsize/server_map.size();
+  int server_id = offset/server_portion;
+  offset -= server_id*server_portion;
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
