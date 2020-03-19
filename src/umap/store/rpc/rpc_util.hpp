@@ -15,6 +15,7 @@
 #define	RPC_RESPONSE_REQ_UNAVAIL 7777
 #define RPC_RESPONSE_REQ_AVAIL 8888
 #define RPC_RESPONSE_REQ_WRONG_SIZE 9999
+#define RPC_RESPONSE_REQ_SIZE 5555
 #define RPC_RESPONSE_RELEASE 6666
 #define	RPC_RESPONSE_GENERAL_ERROR 1111
 
@@ -75,6 +76,7 @@ MERCURY_GEN_PROC(umap_request_rpc_in_t,
 
 /* UMap RPC output structure */
 MERCURY_GEN_PROC(umap_request_rpc_out_t,
+                 ((hg_size_t)(size))\
 		 ((int32_t)(ret)))
 
 /* UMap RPC input structure */

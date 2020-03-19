@@ -11,6 +11,7 @@
   #include <cstdint>
   #include <mutex>
   #include "umap/store/Store.hpp"
+  #include "umap/store/StoreNetwork.h"
 #else // __cplusplus
   #include <stdint.h>
 #endif // __cplusplus

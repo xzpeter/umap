@@ -69,7 +69,6 @@ int main(int argc, char **argv)
   }
 
   /* Create two network-based datastores */
-  int num_clients = 0;
   Umap::Store* ds0  = new Umap::StoreNetworkServer("arr_a", arr0, array_length);
   std::cout << "ds0 is Registed " << std::endl;
   

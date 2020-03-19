@@ -7,10 +7,11 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include "StoreNetwork.h"
 #include <iostream>
 #include <sstream>
 #include <cassert>
+
+#include "StoreNetwork.h"
 
 #include "umap/store/Store.hpp"
 #include "umap/util/Macros.hpp"
@@ -75,7 +76,7 @@ namespace Umap {
     if( client_check_resource(id) ){
 
       /* Get request approval from the server */
-      bool has_server_accepted = client_request_resource(id, rsize);
+      bool has_server_accepted = client_request_resource(id, &rsize);
       if( !has_server_accepted ){
 	UMAP_ERROR("Cannot request "<< id << ", rejected by the server ");
       }

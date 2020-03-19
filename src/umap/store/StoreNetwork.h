@@ -7,7 +7,7 @@
 
 #ifndef _UMAP_NETWORK_STORE_H_
 #define _UMAP_NETWORK_STORE_H_
-#include <cstdint>
+//#include <cstdint>
 #include "umap/store/Store.hpp"
 #include "umap/umap.h"
 
@@ -18,6 +18,7 @@ namespace Umap {
   public:
     StoreNetwork(const char* _id, std::size_t _rsize_, bool _is_server=false);
     virtual ~StoreNetwork();
+    std::size_t get_size(){return rsize;}
     
     ssize_t read_from_store(char* buf, size_t nb, off_t off);
     ssize_t write_to_store(char* buf, size_t nb, off_t off);
@@ -28,7 +29,6 @@ namespace Umap {
     size_t rsize;
     bool is_on_server;
     size_t num_clients;
-
   };
 
   class StoreNetworkServer : public StoreNetwork {

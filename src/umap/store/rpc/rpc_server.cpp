@@ -149,7 +149,7 @@ void* get_resource(const char* id, size_t offset, size_t size)
  */
 static int umap_server_read_rpc(hg_handle_t handle)
 {
-  UMAP_LOG(Debug, "Entering");
+  //UMAP_LOG(Debug, "Entering");
 
   assert(mid != MARGO_INSTANCE_NULL);
   
@@ -170,7 +170,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Info, "Server "<<server_id<<" request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
+  //UMAP_LOG(Info, "Server "<<server_id<<" request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -204,7 +204,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
       UMAP_ERROR("Failed to create bulk handle on server");
     }
 
-    UMAP_LOG(Debug,"start bulk transfer");
+    //UMAP_LOG(Debug,"start bulk transfer");
     /* initiate bulk transfer from server to client */
     /* margo_bulk_transfer is a blocking version of */
     /* that only returns when HG_Bulk_transfer complete */
@@ -214,7 +214,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     if(ret != HG_SUCCESS){
       UMAP_ERROR("Failed to bulk transfer from server to client");
     }
-    UMAP_LOG(Debug,"end bulk transfer");
+    //UMAP_LOG(Debug,"end bulk transfer");
 
 
     /* Inform the client side */
@@ -232,7 +232,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     assert(ret == HG_SUCCESS);
     ret = margo_destroy(handle);
     assert(ret == HG_SUCCESS);
-    UMAP_LOG(Debug, "Exiting");
+    //UMAP_LOG(Debug, "Exiting");
 
     return 0;
 }
@@ -366,6 +366,9 @@ static int umap_server_request_rpc(hg_handle_t handle)
       output.ret  = RPC_RESPONSE_REQ_AVAIL;
       (it->second).num_clients ++;
       print_server_memory_pool();
+    }else if(in.size == 0 ){
+      output.ret  = RPC_RESPONSE_REQ_SIZE;
+      output.size = (it->second).rsize;
     }else{
       output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
       UMAP_LOG(Info, in.id << " on the Server has size="

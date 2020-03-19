@@ -45,18 +45,18 @@ bool client_check_resource(const char* id){
 /* Send request to the server */
 /* a blocking operation returns */
 /* when the response from server arrives */
-bool client_request_resource(const char* id, size_t rsize){
+bool client_request_resource(const char* id, size_t* rsize){
 
   bool flag = true;
 
   size_t num_servers = server_map.size();
   assert(num_servers>0);
-  assert(rsize%num_servers==0);
+  assert( ((*rsize) % num_servers)==0 );
 
   /* Create input structure */
   umap_request_rpc_in_t in;
   in.id = strdup(id);
-  in.size = rsize/num_servers;
+  in.size = (*rsize)/num_servers;
 
   /* send request to the server list*/
   hg_handle_t handle_list[num_servers];
@@ -93,6 +93,9 @@ bool client_request_resource(const char* id, size_t rsize){
 
     if( out.ret==RPC_RESPONSE_REQ_AVAIL){
  
+    }else if( out.ret==RPC_RESPONSE_REQ_SIZE){
+      UMAP_LOG(Info, "The server return size "<< out.size << " for " << id);
+      *rsize = (*rsize) + out.size;
     }else{
       if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
 	UMAP_LOG(Warning, "The requested "<< id <<" is unavailable.");

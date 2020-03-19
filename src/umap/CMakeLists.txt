@@ -77,4 +77,4 @@ install(TARGETS umap umap-static
 
 install(FILES umap.h DESTINATION include/umap)
 
-install(FILES store/Store.hpp DESTINATION include/umap/store )
+install(FILES store/StoreNetwork.h store/Store.hpp DESTINATION include/umap/store )
