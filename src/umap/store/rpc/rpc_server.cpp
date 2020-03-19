@@ -268,7 +268,7 @@ static int umap_server_write_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  UMAP_LOG(Debug, "request to write "<<input.size<<" bytes at offset "<< input.offset);
+  //UMAP_LOG(Debug, "request to write "<<input.size<<" bytes at offset "<< input.offset);
 
 
   /* Shall we allow empty write request? or just ignore */
