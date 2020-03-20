@@ -59,6 +59,12 @@ void* umap(
   , off_t offset
 );
 
+void* umap_network(
+		   const char*  id
+                   , void* region_addr
+                   , size_t region_size
+);
+
 int uunmap(
     void*  addr
   , size_t length

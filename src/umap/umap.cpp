@@ -37,6 +37,26 @@ umap(
   return Umap::umap_ex(region_addr, region_size, prot, flags, fd, 0, nullptr);
 }
 
+void* umap_network(const char*	id
+		   , void* region_addr
+		   , size_t region_size)
+{
+  Umap::Store *ds;
+  
+  if( region_addr!=NULL ){
+
+    /* Server */
+    ds = new Umap::StoreNetworkServer(id, region_addr, region_size);
+    return region_addr;
+  }else{
+
+    /*Client */
+    ds = new Umap::StoreNetworkClient(id, region_size);
+    return Umap::umap_ex(region_addr, region_size, PROT_READ, UMAP_PRIVATE, -1, 0, ds);    
+  }
+  
+}
+
 int
 uunmap(void*  addr, uint64_t length)
 {
