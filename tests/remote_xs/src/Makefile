@@ -9,7 +9,7 @@ PROFILE   = no
 MPI       = no
 PAPI      = no
 VEC_INFO  = no
-VERIFY    = yes
+VERIFY    = no
 PAUSE     = no
 BENCHMARK = no
 
@@ -107,7 +107,10 @@ endif
 #===============================================================================
 # Targets to Build
 #===============================================================================
-all: clean server client
+all: clean $(program) server client
+
+$(program): $(obj) do_flops.o XSbench_header.h
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) Main.c do_flops.o $(obj) -o $@ $(LDFLAGS)
 
 server: $(obj) do_flops.o XSbench_header.h server.c
 	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) server.c do_flops.o $(obj) -o $@ -I/g/g90/peng8/flash/XSBench/umap/build/include $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo

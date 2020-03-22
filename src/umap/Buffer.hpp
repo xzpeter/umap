@@ -41,6 +41,7 @@ namespace Umap {
       bool low_threshold_reached( void );
 
       PageDescriptor* evict_oldest_page( void );
+      PageDescriptor* evict_newest_page( void );
       void process_page_event(char* paddr, bool iswrite, RegionDescriptor* rd);
       void evict_region(RegionDescriptor* rd);
       void flush_dirty_pages();

@@ -4,9 +4,6 @@
 #include<mpi.h>
 #endif
 
-#include "umap/umap.h"
-//#include "umap/store/StoreNetwork.h"
-
 int main( int argc, char* argv[] )
 {
 	// =====================================================================
@@ -123,11 +120,6 @@ int main( int argc, char* argv[] )
 	// Sort grids by energy
 	if( mype == 0) printf("Sorting Nuclide Energy Grids...\n");
 	sort_nuclide_grids( nuclide_grids, n_isotopes, n_gridpoints );
-
-	//Umap::Store* ds = new Umap::StoreNetworkServer("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
-	umap_network("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
-	printf("nuclide_grids is Registed \n");
-
 	
 	// Prepare Unionized Energy Grid Framework
 	GridPoint * energy_grid = generate_energy_grid( n_isotopes, n_gridpoints,
