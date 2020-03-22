@@ -77,18 +77,22 @@ GridPoint * generate_energy_grid( int n_isotopes, int n_gridpoints,
 	GridPoint * energy_grid = (GridPoint *)malloc( n_unionized_grid_points
 	                                               * sizeof( GridPoint ) );
 	if( mype == 0 ) printf("Copying and Sorting all nuclide grids...\n");
+	sleep(5);
 	
 	NuclideGridPoint ** n_grid_sorted = gpmatrix( n_isotopes, n_gridpoints );
 	
 	  	
 	memcpy( n_grid_sorted[0], nuclide_grids[0], n_isotopes*n_gridpoints*
 	                                      sizeof( NuclideGridPoint ) );
-	
+
+	if( mype == 0 ) printf("Sorting ...\n");
+	sleep(5);
 	qsort( &n_grid_sorted[0][0], n_unionized_grid_points,
 	       sizeof(NuclideGridPoint), cmp);
+
 	
 	if( mype == 0 ) printf("Assigning energies to unionized grid...\n");
-	
+	sleep(5);
 	for( int i = 0; i < n_unionized_grid_points; i++ )
 		energy_grid[i].energy = n_grid_sorted[0][i].energy;
 	

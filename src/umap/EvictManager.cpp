@@ -27,6 +27,7 @@ void EvictManager::EvictMgr( void ) {
       WorkItem work;
       work.type = Umap::WorkItem::WorkType::EVICT;
       work.page_desc = m_buffer->evict_oldest_page(); // Could block
+      //work.page_desc = m_buffer->evict_newest_page(); // Could block
 
       if ( work.page_desc == nullptr )
         break;

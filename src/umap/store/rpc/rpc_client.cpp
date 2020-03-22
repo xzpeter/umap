@@ -351,6 +351,7 @@ int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t 
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
 
+  UMAP_LOG(Info, id<<" [ 0x"<< buf_ptr << ", " << offset << ", " <<nbytes<<" ]");
   
   /* Forward the RPC. umap_client_fwdcompleted_cb will be called
    * when receiving the response from the server
@@ -376,7 +377,6 @@ int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t 
   void **buf_ptrs    = (void **) &(buf_ptr);
   size_t *buf_sizes  = &(in.size);
 
-  UMAP_LOG(Debug, "create bulk "<< in.size << " bytes at 0x" <<buf_ptr);
   /* Create a bulk transfer handle in args */
   ret = margo_bulk_create(mid,
 			  1, buf_ptrs, buf_sizes,
@@ -402,9 +402,6 @@ int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t 
   assert(ret == HG_SUCCESS);
   ret = margo_destroy(handle);
   assert(ret == HG_SUCCESS);
-
-  uint64_t *arr = (uint64_t*) buf_ptr;
-  UMAP_LOG(Debug, "after getting response "<< arr[0]);
   
   return ret;
 

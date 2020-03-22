@@ -125,7 +125,7 @@ int main( int argc, char* argv[] )
 	assert(nuclide_grids);
 	for( int i = 0, j=0; i < n_isotopes*n_gridpoints; i++ ){
 	  if( i % n_gridpoints == 0 ){
-	    printf("j=%d i=%d %p\n", j, i, &(full[i]));
+	    //printf("j=%d i=%d %p\n", j, i, &(full[i]));
 	    nuclide_grids[j++] = &(full[i]);
 	  }
 	}
@@ -143,8 +143,9 @@ int main( int argc, char* argv[] )
 
 	//Umap::Store* ds = new Umap::StoreNetworkServer("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
 	umap_network("nuclide_grids", nuclide_grids[0], aligned_size );
-	printf("nuclide_grids is Registed \n");
-
+	printf("Server nuclide_grids is Registed \n");
+	while(1)
+	  sleep(10);
 	
 	// Prepare Unionized Energy Grid Framework
 	GridPoint * energy_grid = generate_energy_grid( n_isotopes, n_gridpoints,
