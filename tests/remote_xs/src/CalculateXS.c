@@ -93,6 +93,7 @@ void calculate_macro_xs( double p_energy, int mat, int n_isotopes,
 	for( int k = 0; k < 5; k++ )
 		macro_xs_vector[k] = 0;
 
+	//printf("before grid_search energy_grid %p\n", energy_grid);
 	// binary search for energy on unionized energy grid (UEG)
 	idx = grid_search( n_isotopes * n_gridpoints, p_energy,
 	                   energy_grid);	
@@ -108,6 +109,7 @@ void calculate_macro_xs( double p_energy, int mat, int n_isotopes,
 	{
 		p_nuc = mats[mat][j];
 		conc = concs[mat][j];
+		//printf("before calculate_micro_xs energy_grid %p nuclide_grids %p\n", energy_grid, nuclide_grids);
 		calculate_micro_xs( p_energy, p_nuc, n_isotopes,
 		                    n_gridpoints, energy_grid,
 		                    nuclide_grids, idx, xs_vector );

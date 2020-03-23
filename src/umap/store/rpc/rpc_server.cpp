@@ -149,7 +149,7 @@ void* get_resource(const char* id, size_t offset, size_t size)
  */
 static int umap_server_read_rpc(hg_handle_t handle)
 {
-  //UMAP_LOG(Debug, "Entering");
+  UMAP_LOG(Debug, "Entering");
 
   assert(mid != MARGO_INSTANCE_NULL);
   
@@ -247,7 +247,7 @@ DEFINE_MARGO_RPC_HANDLER(umap_server_read_rpc)
  */
 static int umap_server_write_rpc(hg_handle_t handle)
 {
-  UMAP_LOG(Debug, "Entering");
+  UMAP_LOG(Info, "Entering");
 
   assert(mid != MARGO_INSTANCE_NULL);
   
@@ -268,7 +268,7 @@ static int umap_server_write_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  //UMAP_LOG(Debug, "request to write "<<input.size<<" bytes at offset "<< input.offset);
+  UMAP_LOG(Info, "request to write "<<input.size<<" bytes at offset "<< input.offset);
 
 
   /* Shall we allow empty write request? or just ignore */

@@ -130,22 +130,37 @@ int main( int argc, char* argv[] )
 	aligned_size = ((aligned_size-1)/umap_page_size+1)*umap_page_size;
 	
 	NuclideGridPoint* full = (NuclideGridPoint*) umap_network("nuclide_grids", NULL, aligned_size);
-	printf("Client nuclide_grids is Registed %p \n", full);
+	printf("Client nuclide_grids is Registed at %p \n", full);
 
         NuclideGridPoint ** nuclide_grids = (NuclideGridPoint **) malloc( n_isotopes *
 									  sizeof(NuclideGridPoint *) );
         for( int i = 0, j=0; i < n_isotopes*n_gridpoints; i++ )
 	  if( i % n_gridpoints == 0 )
 	    nuclide_grids[j++] = &full[i];
-        
+
 	
 	// Prepare Unionized Energy Grid Framework
-	GridPoint * energy_grid = generate_energy_grid( n_isotopes, n_gridpoints,
-	                                                nuclide_grids ); 	
+	//GridPoint * energy_grid = generate_energy_grid( n_isotopes, n_gridpoints, nuclide_grids ); 	
 
 	// Double Indexing. Filling in energy_grid with pointers to the
 	// nuclide_energy_grids.
-	set_grid_ptrs( energy_grid, nuclide_grids, n_isotopes, n_gridpoints );
+	//set_grid_ptrs( energy_grid, nuclide_grids, n_isotopes, n_gridpoints );
+
+	int n_unionized_grid_points = n_isotopes*n_gridpoints;
+	size_t size2 = n_unionized_grid_points*sizeof(GridPoint);
+	size2 = ((size2-1)/umap_page_size+1)*umap_page_size;
+	GridPoint * energy_grid = (GridPoint *)malloc(n_unionized_grid_points*sizeof(GridPoint));
+	GridPoint * energy_grid_remote = umap_network("energy_grid", NULL, size2 );
+	for( int i = 0; i < n_unionized_grid_points; i++ )
+	  energy_grid[i].energy = energy_grid_remote[i].energy;
+
+ 
+	size_t size3 = n_isotopes * n_unionized_grid_points * sizeof(int);
+	size3 =  ((size3-1)/umap_page_size+1) * umap_page_size;
+	int* full2 = umap_network("full", NULL, size3 );	
+	for( int i = 0; i < n_unionized_grid_points; i++ )
+                energy_grid[i].xs_ptrs = &full2[n_isotopes * i];
+        printf("Client energy_grids is Registed at %p\n", energy_grid);
 	
 	// Get material data
 	if( mype == 0 ) printf("Loading Mats...\n");
@@ -157,6 +172,7 @@ int main( int argc, char* argv[] )
 	double **concs = load_concs(num_nucs);
 	#endif
 
+	
 	// =====================================================================
 	// Cross Section (XS) Parallel Lookup Simulation Begins
 	// =====================================================================
@@ -233,7 +249,7 @@ int main( int argc, char* argv[] )
 			calculate_macro_xs( p_energy, mat, n_isotopes,
 			                    n_gridpoints, num_nucs, concs,
 			                    energy_grid, nuclide_grids, mats,
-                                macro_xs_vector );
+					    macro_xs_vector );
 
 			// Verification hash calculation
 			// This method provides a consistent hash accross
