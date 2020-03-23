@@ -141,11 +141,6 @@ int main( int argc, char* argv[] )
 	if( mype == 0) printf("Sorting Nuclide Energy Grids...\n");
 	sort_nuclide_grids( nuclide_grids, n_isotopes, n_gridpoints );
 
-	//Umap::Store* ds = new Umap::StoreNetworkServer("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
-	umap_network("nuclide_grids", nuclide_grids[0], aligned_size );
-	printf("Server nuclide_grids is Registed \n");
-	while(1)
-	  sleep(10);
 	
 	// Prepare Unionized Energy Grid Framework
 	GridPoint * energy_grid = generate_energy_grid( n_isotopes, n_gridpoints,
@@ -154,6 +149,25 @@ int main( int argc, char* argv[] )
 	// Double Indexing. Filling in energy_grid with pointers to the
 	// nuclide_energy_grids.
 	set_grid_ptrs( energy_grid, nuclide_grids, n_isotopes, n_gridpoints );
+
+	//Umap::Store* ds = new Umap::StoreNetworkServer("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
+	umap_network("nuclide_grids", nuclide_grids[0], aligned_size );
+	printf("Server nuclide_grids is Registed \n");
+
+	int n_unionized_grid_points = n_isotopes*n_gridpoints;
+	size_t size2 = n_unionized_grid_points*sizeof(GridPoint);
+	size2 =  ((size2-1)/umap_page_size+1) * umap_page_size;
+	umap_network("energy_grid", energy_grid, size2 );
+	printf("Server energy_grids is Registed \n");
+	
+	size_t size3 = n_isotopes * n_unionized_grid_points * sizeof(int);
+	size3 =  ((size3-1)/umap_page_size+1) * umap_page_size;
+	umap_network("full", energy_grid[0].xs_ptrs, size3 );
+	printf("Server full is Registed \n");
+	
+	while(1)
+	  sleep(10);
+
 	
 	// Get material data
 	if( mype == 0 ) printf("Loading Mats...\n");

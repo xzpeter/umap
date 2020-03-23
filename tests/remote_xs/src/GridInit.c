@@ -73,9 +73,10 @@ GridPoint * generate_energy_grid( int n_isotopes, int n_gridpoints,
 	int n_unionized_grid_points = n_isotopes*n_gridpoints;
 	int (*cmp) (const void *, const void *);
 	cmp = NGP_compare;
+
+	size_t size2 = ((n_unionized_grid_points*sizeof(GridPoint)-1)/4096+1)*4096;
+	GridPoint * energy_grid = (GridPoint *)malloc(size2);//(GridPoint *)malloc( n_unionized_grid_points * sizeof( GridPoint ) );
 	
-	GridPoint * energy_grid = (GridPoint *)malloc( n_unionized_grid_points
-	                                               * sizeof( GridPoint ) );
 	if( mype == 0 ) printf("Copying and Sorting all nuclide grids...\n");
 	sleep(5);
 	
@@ -98,9 +99,9 @@ GridPoint * generate_energy_grid( int n_isotopes, int n_gridpoints,
 	
 
 	gpmatrix_free(n_grid_sorted);
-	
-	int * full = (int *) malloc( n_isotopes * n_unionized_grid_points
-	                             * sizeof(int) );
+
+	size_t size3 = ((n_isotopes * n_unionized_grid_points* sizeof(int)-1)/4096+1)*4096;
+	int * full = (int *) malloc( size3 );
 	
 	for( int i = 0; i < n_unionized_grid_points; i++ )
 		energy_grid[i].xs_ptrs = &full[n_isotopes * i];
@@ -128,8 +129,8 @@ void set_grid_ptrs( GridPoint * energy_grid, NuclideGridPoint ** nuclide_grids,
 	#endif
 	
 	if( mype == 0 ) printf("Assigning pointers to Unionized Energy Grid...\n");
-	#pragma omp parallel for default(none) \
-	shared( energy_grid, nuclide_grids, n_isotopes, n_gridpoints, mype )
+
+#pragma omp parallel for default(none) shared( energy_grid, nuclide_grids, n_isotopes, n_gridpoints, mype )
 	for( int i = 0; i < n_isotopes * n_gridpoints ; i++ )
 	{
 		double quarry = energy_grid[i].energy;
