@@ -107,25 +107,25 @@ endif
 #===============================================================================
 # Targets to Build
 #===============================================================================
-all: clean $(program) server client
+all: clean $(program) xs_server xs_client
 
 $(program): $(obj) do_flops.o XSbench_header.h
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) Main.c do_flops.o $(obj) -o $@ $(LDFLAGS)
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) Main.c do_flops.o $(obj)   -o $@ $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo 
 
-server: $(obj) do_flops.o XSbench_header.h server.c
+xs_server: $(obj) do_flops.o XSbench_header.h server.c
 	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) server.c do_flops.o $(obj) -o $@ -I/g/g90/peng8/flash/XSBench/umap/build/include $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo
 
-client: $(obj) do_flops.o XSbench_header.h client.c
+xs_client: $(obj) do_flops.o XSbench_header.h client.c
 	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) client.c do_flops.o $(obj) -o $@ -I/g/g90/peng8/flash/XSBench/umap/build/include $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo
 
 %.o: %.c
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) -c $< -o $@ 
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) -c $< -o $@  -I/g/g90/peng8/flash/XSBench/umap/build/include 
 
 do_flops.o: do_flops.c
 	$(GCC) $(GCC_S_FLAGS) -c do_flops.c
 
 clean:
-	rm -rf XSBench XSBench.dSYM *.o server client
+	rm -rf XSBench XSBench.dSYM *.o xs_server xs_client
 
 edit:
 	vim -p $(source) do_flops.c papi.c XSbench_header.h

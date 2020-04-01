@@ -108,6 +108,7 @@ int main( int argc, char* argv[] )
 
 	// Allocate & fill energy grids
 	if( mype == 0) printf("Generating Nuclide Energy Grids...\n");
+	double time_st = omp_get_wtime();
 	
 	NuclideGridPoint ** nuclide_grids = gpmatrix( n_isotopes, n_gridpoints );
 	
@@ -139,6 +140,9 @@ int main( int argc, char* argv[] )
 	double **concs = load_concs(num_nucs);
 	#endif
 
+	double time_setup = omp_get_wtime() - time_st;
+	printf("Client %d setup %.2f \n", mype, time_setup);
+	
 	// =====================================================================
 	// Cross Section (XS) Parallel Lookup Simulation Begins
 	// =====================================================================

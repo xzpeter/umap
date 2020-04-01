@@ -110,6 +110,8 @@ int main( int argc, char* argv[] )
 
 	// Allocate & fill energy grids
 	if( mype == 0) printf("Generating Nuclide Energy Grids...\n");
+
+	double time_st = omp_get_wtime();
 	
 	/*NuclideGridPoint ** nuclide_grids = gpmatrix( n_isotopes, n_gridpoints );
 	
@@ -124,19 +126,22 @@ int main( int argc, char* argv[] )
 	sort_nuclide_grids( nuclide_grids, n_isotopes, n_gridpoints );
 	*/
 	
-	//Umap::Store* ds = new Umap::StoreNetworkServer("nuclide_grids", nuclide_grids[0], n_isotopes*n_gridpoints*sizeof(NuclideGridPoint) );
-	size_t umap_page_size = umapcfg_get_umap_page_size();
-	size_t aligned_size = n_isotopes*n_gridpoints*sizeof(NuclideGridPoint);
-	aligned_size = ((aligned_size-1)/umap_page_size+1)*umap_page_size;
-	
-	NuclideGridPoint* full = (NuclideGridPoint*) umap_network("nuclide_grids", NULL, aligned_size);
-	printf("Client nuclide_grids is Registed at %p \n", full);
+	size_t umap_page_size = 1048576; //umapcfg_get_umap_page_size();
+	size_t n_unionized_grid_points = n_isotopes*n_gridpoints;
 
+	size_t size1 = n_unionized_grid_points*sizeof(NuclideGridPoint);
+	size1 = ((size1-1)/umap_page_size+1)*umap_page_size;	
+	NuclideGridPoint* full = (NuclideGridPoint*) umap_network("nuclide_grids", NULL, size1);
         NuclideGridPoint ** nuclide_grids = (NuclideGridPoint **) malloc( n_isotopes *
-									  sizeof(NuclideGridPoint *) );
-        for( int i = 0, j=0; i < n_isotopes*n_gridpoints; i++ )
+									  sizeof(NuclideGridPoint*) );
+
+        /*for( int i = 0, j=0; i < n_isotopes*n_gridpoints; i++ )
 	  if( i % n_gridpoints == 0 )
 	    nuclide_grids[j++] = &full[i];
+	*/
+	for( size_t i = 0; i < n_isotopes; i++ ){
+	    nuclide_grids[i] = &(full[i*n_gridpoints]);
+	}	
 
 	
 	// Prepare Unionized Energy Grid Framework
@@ -146,21 +151,18 @@ int main( int argc, char* argv[] )
 	// nuclide_energy_grids.
 	//set_grid_ptrs( energy_grid, nuclide_grids, n_isotopes, n_gridpoints );
 
-	int n_unionized_grid_points = n_isotopes*n_gridpoints;
 	size_t size2 = n_unionized_grid_points*sizeof(GridPoint);
 	size2 = ((size2-1)/umap_page_size+1)*umap_page_size;
 	GridPoint * energy_grid = (GridPoint *)malloc(n_unionized_grid_points*sizeof(GridPoint));
 	GridPoint * energy_grid_remote = umap_network("energy_grid", NULL, size2 );
-	for( int i = 0; i < n_unionized_grid_points; i++ )
+	for( size_t i = 0; i < n_unionized_grid_points; i++ )
 	  energy_grid[i].energy = energy_grid_remote[i].energy;
-
  
-	size_t size3 = n_isotopes * n_unionized_grid_points * sizeof(int);
-	size3 =  ((size3-1)/umap_page_size+1) * umap_page_size;
+	size_t size3 = (size_t)n_isotopes * n_unionized_grid_points * sizeof(int);printf("full size3 %zu...\n", size3);
+	size3 =  ((size3-1)/umap_page_size+1) * umap_page_size;printf("full size3 %zu...\n", size3);
 	int* full2 = umap_network("full", NULL, size3 );	
-	for( int i = 0; i < n_unionized_grid_points; i++ )
+	for( size_t i = 0; i < n_unionized_grid_points; i++ )
                 energy_grid[i].xs_ptrs = &full2[n_isotopes * i];
-        printf("Client energy_grids is Registed at %p\n", energy_grid);
 	
 	// Get material data
 	if( mype == 0 ) printf("Loading Mats...\n");
@@ -172,6 +174,8 @@ int main( int argc, char* argv[] )
 	double **concs = load_concs(num_nucs);
 	#endif
 
+	double time_setup = omp_get_wtime() - time_st;
+	printf("Client %d setup %.2f \n", mype, time_setup);
 	
 	// =====================================================================
 	// Cross Section (XS) Parallel Lookup Simulation Begins
