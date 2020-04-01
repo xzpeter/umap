@@ -1,12 +1,14 @@
 #!/bin/bash
 
-ROOT="$(pwd)"
+if [ -z "$UMAP_DEP_ROOT" ];then
+    UMAP_DEP_ROOT="$(pwd)"
+fi
 
-mkdir -p deps
+mkdir -p $UMAP_DEP_ROOT/deps
 mkdir -p build
-INSTALL_DIR=$ROOT/build
+INSTALL_DIR=$UMAP_DEP_ROOT/deps
 
-cd deps
+cd $UMAP_DEP_ROOT/deps
 
 repos=(
     https://github.com/pmodels/argobots.git
@@ -40,7 +42,7 @@ cd ..
 
 echo "### building mercury ###"
 cd mercury
-mkdir -p build && cd build
+rm -rf build && mkdir -p build && cd build
 cmake -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
       -DMERCURY_USE_BOOST_PP=ON \
       -DMERCURY_USE_CHECKSUMS=ON \
@@ -63,12 +65,12 @@ export PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig"
 ./configure --prefix="$INSTALL_DIR"
 make -j $(nproc) && make install
 
-cd "$ROOT"
+cd "$UMAP_DEP_ROOT"
 
 echo "*************************************************************************"
 echo "Dependencies are all built.  You can now build with:"
 echo ""
-echo "  cd build && cmake3 -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Release -DMARGO_ROOT=${MARGO_INSTALL_DIR}  .."
+echo "  cd build && cmake3 -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Release -DMARGO_ROOT=${UMAP_DEP_ROOT}  .."
 echo "  make"
 echo "  make install"
 echo "*************************************************************************"
