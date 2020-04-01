@@ -60,7 +60,6 @@ class RegionManager {
     long     get_system_page_size( void ) { return m_system_page_size; }
     uint64_t get_max_pages_in_buffer( void ) { return m_max_pages_in_buffer; }
     uint64_t get_read_ahead( void ) { return m_read_ahead; }
-    void set_read_ahead(uint64_t num_pages);
     uint64_t get_umap_page_size( void ) { return m_umap_page_size; }
     uint64_t get_num_fillers( void ) { return m_num_fillers; }
     uint64_t get_num_evictors( void ) { return m_num_evictors; }
@@ -100,6 +99,7 @@ class RegionManager {
     uint64_t        get_max_pages_in_memory( void );
     void set_max_fault_events( uint64_t max_events );
     void set_max_pages_in_buffer( uint64_t max_pages );
+    void set_read_ahead(uint64_t num_pages);
     void set_umap_page_size( uint64_t page_size );
     void set_num_fillers( uint64_t num_fillers );
     void set_num_evictors( uint64_t num_evictors );
