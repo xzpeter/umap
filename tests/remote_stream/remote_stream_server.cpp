@@ -78,6 +78,7 @@ int main(int argc, char **argv)
 
 
   //std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
+  while(1)
   sleep(20);
 
   
