@@ -83,7 +83,6 @@ uint64_t umapcfg_get_num_fillers( void );
 uint64_t umapcfg_get_num_evictors( void );
 uint64_t umapcfg_get_max_pages_in_buffer( void );
 uint64_t umapcfg_get_read_ahead( void );
-void     umapcfg_set_read_ahead( uint64_t t );
 int      umapcfg_get_evict_low_water_threshold( void );
 int      umapcfg_get_evict_high_water_threshold( void );
 

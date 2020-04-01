@@ -100,12 +100,6 @@ umapcfg_get_read_ahead( void )
   return Umap::RegionManager::getInstance().get_read_ahead();
 }
 
-void
-umapcfg_set_read_ahead( uint64_t t )
-{
-  return Umap::RegionManager::getInstance().set_read_ahead(t);
-}
-
 uint64_t
 umapcfg_get_umap_page_size( void )
 {

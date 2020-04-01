@@ -120,55 +120,6 @@ PageDescriptor* Buffer::evict_oldest_page()
   return pd;
 }
 
-
-/*
-/* Called from Evict Manager to begin eviction process
-/* on neweest present  page */
-PageDescriptor* Buffer::evict_newest_page()
-{
-  PageDescriptor* pd = nullptr;
-
-  lock();
-
-  while ( m_busy_pages.size() != 0 ) {
-    pd = m_busy_pages.front();
-
-    // Deferred means that this page was previously evicted as part of an
-    // uunmap of a Region.  This means that this page descriptor points to a
-    // page that has already been given back to the system so all we need to
-    // do is take it off of the busy list and release the descriptor.
-    //
-    if ( pd->deferred ) {
-      UMAP_LOG(Debug, "Deferred Page: " << pd);
-
-      //
-      // Make sure that the page has truly been flushed.
-      //
-      wait_for_page_state(pd, PageDescriptor::State::FREE);
-
-      m_busy_pages.pop_front();
-      m_stats.pages_deleted++;
-
-      //
-      // Jump to the next page descriptor
-      //
-      release_page_descriptor(pd);
-      pd = nullptr;
-    }
-    else {
-      UMAP_LOG(Debug, "Normal Page: " << pd);
-      wait_for_page_state(pd, PageDescriptor::State::PRESENT);
-      m_busy_pages.pop_front();
-      m_stats.pages_deleted++;
-      pd->set_state_leaving();
-      break;
-    }
-  }
-
-  unlock();
-  return pd;
-}
-
   void Buffer::flush_dirty_pages()
   {
     lock();
