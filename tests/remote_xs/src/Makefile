@@ -12,7 +12,7 @@ VEC_INFO  = no
 VERIFY    = yes
 PAUSE     = no
 BENCHMARK = no
-
+margo_dir = /g/g90/peng8/flash/forked_umap_c_bind/umap/build
 #===============================================================================
 # Program name & source code list
 #===============================================================================
@@ -42,13 +42,13 @@ ifeq ($(MACHINE),bluegene)
 endif
 
 # Standard Flags
-GCC_S_FLAGS := -fopenmp -std=gnu99
+GCC_S_FLAGS := -fopenmp -std=gnu99 -I$(margo_dir)/include
 
 # Optional/Extra Flags
 GCC_O_FLAGS =
 
 # Linker Flags
-LDFLAGS = -lm
+LDFLAGS = -lm -L$(margo_dir)/lib -lumap -lmargo 
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
@@ -110,16 +110,16 @@ endif
 all: clean $(program) xs_server xs_client
 
 $(program): $(obj) do_flops.o XSbench_header.h
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) Main.c do_flops.o $(obj)   -o $@ $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo 
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) Main.c do_flops.o $(obj)   -o $@ $(LDFLAGS) 
 
 xs_server: $(obj) do_flops.o XSbench_header.h server.c
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) server.c do_flops.o $(obj) -o $@ -I/g/g90/peng8/flash/XSBench/umap/build/include $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) server.c do_flops.o $(obj) -o $@ $(LDFLAGS)
 
 xs_client: $(obj) do_flops.o XSbench_header.h client.c
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) client.c do_flops.o $(obj) -o $@ -I/g/g90/peng8/flash/XSBench/umap/build/include $(LDFLAGS) -L/g/g90/peng8/flash/XSBench/umap/build/lib -lumap -lmargo
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) client.c do_flops.o $(obj) -o $@ $(LDFLAGS)
 
 %.o: %.c
-	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) -c $< -o $@  -I/g/g90/peng8/flash/XSBench/umap/build/include 
+	$(GCC) $(GCC_S_FLAGS) $(GCC_O_FLAGS) -c $< -o $@ 
 
 do_flops.o: do_flops.c
 	$(GCC) $(GCC_S_FLAGS) -c do_flops.c
