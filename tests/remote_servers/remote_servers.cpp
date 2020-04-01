@@ -77,7 +77,8 @@ int main(int argc, char **argv)
 
 
   //std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
-  sleep(20);
+  while(1)
+    sleep(20);
 
   
   /* Free the network dastore */

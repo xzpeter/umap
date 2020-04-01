@@ -63,9 +63,10 @@ int main(int argc, char **argv)
   /* initialization function should be user defined*/
   uint64_t *arr = (uint64_t*) server_buffer;
   size_t num = umap_region_length/sizeof(uint64_t);
+  size_t offset = num*rank;
 #pragma omp parallel for
   for(size_t i=0;i<num;i++)
-    arr[i]=i;
+    arr[i]=i+offset;
 
   /* Create a network-based datastore */
   /* 0 num_clients leaves the server on */
@@ -74,7 +75,9 @@ int main(int argc, char **argv)
 							 umap_region_length,
 							 num_clients);
   
-
+  while(1)
+    sleep(10);
+  
   /* Free the network dastore */
   delete datastore;
     
