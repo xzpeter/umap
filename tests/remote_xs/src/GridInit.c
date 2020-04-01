@@ -1,5 +1,7 @@
 #include "XSbench_header.h"
 
+#include "umap/umap.h"
+ 
 #ifdef MPI
 #include<mpi.h>
 #endif
@@ -70,15 +72,17 @@ GridPoint * generate_energy_grid( int n_isotopes, int n_gridpoints,
 	
 	if( mype == 0 ) printf("Generating Unionized Energy Grid...\n");
 	
-	int n_unionized_grid_points = n_isotopes*n_gridpoints;
 	int (*cmp) (const void *, const void *);
 	cmp = NGP_compare;
 
-	size_t size2 = ((n_unionized_grid_points*sizeof(GridPoint)-1)/4096+1)*4096;
+	size_t umap_page_size = umapcfg_get_umap_page_size();
+	size_t n_unionized_grid_points = (size_t)n_isotopes*n_gridpoints;
+
+	size_t size2 = n_unionized_grid_points*sizeof(GridPoint);
+	size2 = ((size2-1)/umap_page_size+1)*umap_page_size;
 	GridPoint * energy_grid = (GridPoint *)malloc(size2);//(GridPoint *)malloc( n_unionized_grid_points * sizeof( GridPoint ) );
 	
 	if( mype == 0 ) printf("Copying and Sorting all nuclide grids...\n");
-	sleep(5);
 	
 	NuclideGridPoint ** n_grid_sorted = gpmatrix( n_isotopes, n_gridpoints );
 	
@@ -87,23 +91,22 @@ GridPoint * generate_energy_grid( int n_isotopes, int n_gridpoints,
 	                                      sizeof( NuclideGridPoint ) );
 
 	if( mype == 0 ) printf("Sorting ...\n");
-	sleep(5);
 	qsort( &n_grid_sorted[0][0], n_unionized_grid_points,
 	       sizeof(NuclideGridPoint), cmp);
 
 	
 	if( mype == 0 ) printf("Assigning energies to unionized grid...\n");
-	sleep(5);
 	for( int i = 0; i < n_unionized_grid_points; i++ )
 		energy_grid[i].energy = n_grid_sorted[0][i].energy;
 	
 
 	gpmatrix_free(n_grid_sorted);
 
-	size_t size3 = ((n_isotopes * n_unionized_grid_points* sizeof(int)-1)/4096+1)*4096;
+	size_t size3 = n_isotopes * n_unionized_grid_points* sizeof(int);
+	size3 = ((size3-1)/umap_page_size+1)*umap_page_size;
 	int * full = (int *) malloc( size3 );
 	
-	for( int i = 0; i < n_unionized_grid_points; i++ )
+	for( size_t i = 0; i < n_unionized_grid_points; i++ )
 		energy_grid[i].xs_ptrs = &full[n_isotopes * i];
 	
 	// debug error checking
@@ -128,16 +131,17 @@ void set_grid_ptrs( GridPoint * energy_grid, NuclideGridPoint ** nuclide_grids,
 	MPI_Comm_rank(MPI_COMM_WORLD, &mype);
 	#endif
 	
-	if( mype == 0 ) printf("Assigning pointers to Unionized Energy Grid...\n");
+	if( mype == 0 ) printf("Assigning pointers to Unionized Energy Grid... %p  %p\n",energy_grid[0], nuclide_grids[0]);
 
 #pragma omp parallel for default(none) shared( energy_grid, nuclide_grids, n_isotopes, n_gridpoints, mype )
 	for( int i = 0; i < n_isotopes * n_gridpoints ; i++ )
 	{
-		double quarry = energy_grid[i].energy;
 		if( INFO && mype == 0 && omp_get_thread_num() == 0 && i % 200 == 0 )
 			printf("\rAligning Unionized Grid...(%.0lf%% complete)",
 			       100.0 * (double) i / (n_isotopes*n_gridpoints /
 				                         omp_get_num_threads())     );
+		double quarry = energy_grid[i].energy;
+
 		for( int j = 0; j < n_isotopes; j++ )
 		{
 			// j is the nuclide i.d.
