@@ -76,13 +76,10 @@ namespace Umap {
     if( client_check_resource(id) ){
 
       /* Get request approval from the server */
-      bool has_server_accepted = client_request_resource(id, &rsize);
-      if( !has_server_accepted ){
+      bool res = client_add_resource(id, rsize);
+      if( !res ){
 	UMAP_ERROR("Cannot request "<< id << ", rejected by the server ");
       }
-      
-      client_add_resource(id, NULL, rsize);
-
     }else{
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     }

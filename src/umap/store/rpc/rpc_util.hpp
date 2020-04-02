@@ -1,6 +1,7 @@
 #ifndef _RPC_UTIL_H
 #define _RPC_UTIL_H
 
+#include <vector>
 #include <map>
 #include <string>
 #include <margo.h>
@@ -13,19 +14,29 @@
 #define RPC_RESPONSE_READ_DONE 1234
 #define	RPC_RESPONSE_WRITE_DONE 4321
 #define	RPC_RESPONSE_REQ_UNAVAIL 7777
-#define RPC_RESPONSE_REQ_AVAIL 8888
 #define RPC_RESPONSE_REQ_WRONG_SIZE 9999
 #define RPC_RESPONSE_REQ_SIZE 5555
 #define RPC_RESPONSE_RELEASE 6666
 #define	RPC_RESPONSE_GENERAL_ERROR 1111
 
+typedef struct server_metadata
+{
+  size_t offset;
+  size_t size;
+  size_t server_id;
+  server_metadata(size_t o, size_t s, size_t id)
+    :offset(o), size(s), server_id(id){}
+}ServerMetadata;
+
 typedef struct remote_resource
 {
   size_t rsize;
-  size_t server_stride;
+  size_t num_servers;
+  size_t server_stride; //for evenly distributed resource
+  std::vector<ServerMetadata> meta_table;//for irregular distrbuted resource
   remote_resource(){}
   remote_resource(size_t s, size_t n)
-    :rsize(s), server_stride(n) {}
+    :rsize(s), num_servers(n) {}
 } RemoteResource;
 
 typedef std::map<std::string, RemoteResource> ClientResourcePool;

@@ -33,26 +33,33 @@ void reset_index(size_t *arr, size_t len, size_t range);
 int main(int argc, char **argv)
 {
   if( argc != 2 ){
-    printf("Usage: %s [per_array_bytes]\n",argv[0]);
+    printf("Usage: %s [remote_array_bytes]\n",argv[0]);
     return 0;
   }
   
-  const uint64_t array_length =  atoll(argv[1]);
-  cout << "remote STREAM benchmark:: array_length = " << array_length << " bytes \n";
-  
-  char hostname[256];
-  if( gethostname(hostname, sizeof(hostname)) ==0 ) 
-      cout << "hostname " << hostname << "\n";
+  const uint64_t array_length =  atoll(argv[1]);  
   
   /* bootstraping to determine server and clients usnig MPI */
-  int rank;
+  int rank, num_proc;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-
+  MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
+  char hostname[256];
+  if( gethostname(hostname, sizeof(hostname)) ==0 ) {
+      cout << "Server "<< rank << "on "<<hostname
+	   << " remote STREAM benchmark:: array_length = " << array_length << " bytes \n";
+  }
+  
   /* Prepare memory resources on the server */
-  void* arr_a = malloc(array_length);
-  void* arr_b = malloc(array_length);
+  size_t umap_page_size = umapcfg_get_umap_page_size();
+  size_t total_aligned_pages  = (array_length - 1)/umap_page_size + 1;
+  size_t pages_per_server = total_aligned_pages/num_proc;
+  if(rank==(num_proc-1))
+    pages_per_server = total_aligned_pages - pages_per_server*(num_proc-1);
+  
+  size_t aligned_size = umap_page_size * pages_per_server;  
+  void* arr_a = malloc(aligned_size);
+  void* arr_b = malloc(aligned_size);
   if( !arr_a || !arr_b ){
     std::cerr<<" Unable to allocate arrays on the server";
     return 0;
@@ -61,25 +68,24 @@ int main(int argc, char **argv)
   /* initialization function should be user defined */
   uint64_t *arr0 = (uint64_t*) arr_a;
   uint64_t *arr1 = (uint64_t*) arr_b;
-  size_t num = array_length/sizeof(uint64_t);
+  size_t num = aligned_size/sizeof(uint64_t);
+  size_t offset = rank*(total_aligned_pages*umap_page_size/sizeof(uint64_t)/num_proc);  
 #pragma omp parallel for
   for(size_t i=0;i<num;i++){
-    arr0[i]=1;
-    arr1[i]=2;
+    arr0[i]=offset+i;
+    arr1[i]=offset+i;
   }
 
   /* Create two network-based datastores */
   int num_clients = 0;
-  Umap::Store* ds0  = new Umap::StoreNetworkServer("arr_a", arr0, array_length);
-  std::cout << "ds0 is Registed " << std::endl;
+  Umap::Store* ds0  = new Umap::StoreNetworkServer("arr_a", arr0, aligned_size);
+  std::cout << "arr_a is Registed " << std::endl;
   
-  Umap::Store* ds1  = new Umap::StoreNetworkServer("arr_b", arr1, array_length);
-  std::cout << "ds1 is Registed " << std::endl;
+  Umap::Store* ds1  = new Umap::StoreNetworkServer("arr_b", arr1, aligned_size);
+  std::cout << "arr_b is Registed " << std::endl;
 
-
-  //std::cout << " Application computing ... ["<< (5-periods) << "/5]" << std::endl;
   while(1)
-  sleep(20);
+    sleep(20);
 
   
   /* Free the network dastore */

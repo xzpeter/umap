@@ -170,7 +170,7 @@ static int umap_server_read_rpc(hg_handle_t handle)
     UMAP_ERROR("failed to get rpc intput");
   }
 
-  //UMAP_LOG(Info, "Server "<<server_id<<" request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
+  UMAP_LOG(Info, "Server "<<server_id<<" request " << input.id << " [" << input.offset << ", "<<input.size<<" ]");
   
   /* the client signal termination
   * there is no built in functon in margo
@@ -360,15 +360,14 @@ static int umap_server_request_rpc(hg_handle_t handle)
   ServerResourcePool::iterator it = resource_pool.find((hg_const_string_t)in.id);  
   if( it != resource_pool.end() ){
 
+    output.size = (it->second).rsize;
+
     /* Check whether the size match the record */
     /* TODO: shall we allow request with size smaller */
-    if( in.size == (it->second).rsize ){
-      output.ret  = RPC_RESPONSE_REQ_AVAIL;
+    if( in.size == (it->second).rsize || in.size == 0 ){
+      output.ret  = RPC_RESPONSE_REQ_SIZE;
       (it->second).num_clients ++;
       print_server_memory_pool();
-    }else if(in.size == 0 ){
-      output.ret  = RPC_RESPONSE_REQ_SIZE;
-      output.size = (it->second).rsize;
     }else{
       output.ret  = RPC_RESPONSE_REQ_WRONG_SIZE;
       UMAP_LOG(Info, in.id << " on the Server has size="
