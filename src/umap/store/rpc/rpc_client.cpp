@@ -24,11 +24,15 @@ static std::map<int, hg_addr_t> server_map;
 
 void print_client_memory_pool()
 {
-  for(auto it : resource_pool)
+  for(auto it : resource_pool){
     UMAP_LOG(Info, "Client "<< client_id
 	     <<" pool[ " << it.first << " ] :: "
 	     <<"size=" << (it.second).rsize
 	     << ", server_stride=" << (it.second).server_stride);
+
+    for(auto it2 : (it.second).meta_table )
+      UMAP_LOG(Info, "Server "<< it2.server_id << " : "<< it2.offset << ", " <<it2.size) ;
+  }
 }
 
 /* Validate no duplicate remote memory object has been registered the pool */
@@ -42,21 +46,19 @@ bool client_check_resource(const char* id){
 }
 
 
-/* Send request to the server */
+/* Send request to the servers to request rsize bytes */
+/* If rsize=0 the size is return by the servers */
 /* a blocking operation returns */
 /* when the response from server arrives */
-bool client_request_resource(const char* id, size_t* rsize){
-
-  bool flag = true;
-
+void client_request_resource(const char* id, size_t requested_size){
+  
   size_t num_servers = server_map.size();
   assert(num_servers>0);
-  assert( ((*rsize) % num_servers)==0 );
 
   /* Create input structure */
   umap_request_rpc_in_t in;
   in.id = strdup(id);
-  in.size = (*rsize)/num_servers;
+  in.size = 0; //ask servers to return their size
 
   /* send request to the server list*/
   hg_handle_t handle_list[num_servers];
@@ -83,28 +85,32 @@ bool client_request_resource(const char* id, size_t* rsize){
 
   
   /* verify the response from all servers */
-  for( i=0;i<num_servers;i-- ){
-
+  size_t offset=0;
+  for( i=0;i<num_servers;i++ ){
+        
     /* Create output structure */
     umap_request_rpc_out_t out;
     hg_return_t ret;
     ret = margo_get_output(handle_list[i], &out);
     assert(ret == HG_SUCCESS);
 
-    if( out.ret==RPC_RESPONSE_REQ_AVAIL){
- 
-    }else if( out.ret==RPC_RESPONSE_REQ_SIZE){
-      UMAP_LOG(Info, "The server return size "<< out.size << " for " << id);
-      *rsize = (*rsize) + out.size;
+    if( out.ret==RPC_RESPONSE_REQ_SIZE){
+      // this server can provide the (partial) resource, register it
+      // TODO: assume offset if order of server id, to be extended
+      resource_pool[id].meta_table.emplace_back(offset, out.size, i);
+      offset += out.size;
+
+      UMAP_LOG(Info, "Server "<< i <<"/"<<num_servers<<" return size "<< out.size << " for " << id << " total_size="<<offset);
+
     }else{
+      // if this server cannot provide the resource, skip it
       if( out.ret==RPC_RESPONSE_REQ_UNAVAIL){
-	UMAP_LOG(Warning, "The requested "<< id <<" is unavailable.");
+	UMAP_LOG(Warning, "The requested "<< id <<" is unavailable on Server "<<i);
       }else if( out.ret==RPC_RESPONSE_REQ_WRONG_SIZE){
-	UMAP_LOG(Warning, "The requested "<< id <<" has mismatched size.");
+	UMAP_LOG(Warning, "The requested "<< id <<" has mismatched size on Server "<<i);
       }else{
-	UMAP_LOG(Warning, "Unrecognized return message ... ");
+	UMAP_LOG(Warning, "Unrecognized return message from Server "<<i);
       }
-      flag = false;
     }
 
     /* Free output structure */
@@ -115,15 +121,48 @@ bool client_request_resource(const char* id, size_t* rsize){
     assert(ret == HG_SUCCESS);    
   }
   
-  return flag;
+  if( offset<requested_size ){
+    UMAP_LOG(Warning, "Client requested " << requested_size <<
+	              " bytes, but only " << offset << " bytes are available on all servers");
+  }
+  
+  // update the meta data if accepted
+  resource_pool[id].num_servers=resource_pool[id].meta_table.size();
+  resource_pool[id].rsize=offset;
+  resource_pool[id].server_stride = 0;
+  if(offset>0){
+    size_t stride = resource_pool[id].meta_table[0].size;
+    for(auto it : resource_pool[id].meta_table){
+      if(it.size!=stride){
+	stride=0;
+	break;
+      }
+    }
+    resource_pool[id].server_stride = stride;
+  }
+
 }
 
 /* Register the remote memory to the pool */
-void client_add_resource(const char*id, void* ptr, size_t rsize){
-  assert(rsize % server_map.size() == 0);
-  resource_pool.emplace(id, RemoteResource(rsize, rsize/server_map.size()));
+bool client_add_resource(const char*id,
+			 size_t rsize)
+{
+  // try to add the resource locally
+  resource_pool.emplace(id, RemoteResource(rsize, server_map.size()));
+
+  // send request to all servers
+  client_request_resource(id, rsize);
+
+  // currently only accept if the size on server is equal or larger than the requested
+  // it might be relaxed
+  if( resource_pool[id].rsize<rsize ){
+    resource_pool.erase(id);    
+    return false;  
+  }
+
   print_client_memory_pool();
 
+  return true;
 }
 
 /* Delete the memory resource from the pool on the client */

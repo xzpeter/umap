@@ -126,7 +126,7 @@ int main(int argc, char **argv)
        << " Bandwidth [MB/s] : " << bytes*1.0/time 
        << " Ave. time [us] : "   << time
        << " c["<< (id_st+id_end)/2 <<"]="<< c[(id_st+id_end)/2] <<std::endl;
-  assert( c[(id_st+id_end)/2] == 3);
+  assert( c[(id_st+id_end)/2] == 2*((id_st+id_end)/2));
   MPI_Barrier(MPI_COMM_WORLD);
   
   /* Unmap file */

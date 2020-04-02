@@ -32,48 +32,51 @@ void reset_index(size_t *arr, size_t len, size_t range);
 
 int main(int argc, char **argv)
 {
-  if( argc != 3 ){
-    printf("Usage: %s [memory_region_bytes] [num_clients]\n",argv[0]);
+  if( argc != 2 ){
+    printf("Usage: %s [total_memory_region_bytes] \n",argv[0]);
     return 0;
   }
   
   const uint64_t umap_region_length =  atoll(argv[1]);
-  const int num_clients =  atoi(argv[2]);
-
-  cout << "umap_region_length = "  << umap_region_length << " bytes \n";
-  cout << "umap clients = "  << num_clients << "\n";
   
-  char hostname[256];
-  if( gethostname(hostname, sizeof(hostname)) ==0 ) 
-      cout << "hostname " << hostname << "\n";
-  
-  /* bootstraping to determine server and clients usnig MPI */
-  int rank;
+  /* bootstraping to determine server and clients using MPI */
+  int rank, num_proc;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
 
-
+  
   /* Prepare memory resources on the server */
-  void* server_buffer = malloc(umap_region_length);
+  size_t umap_page_size = umapcfg_get_umap_page_size();
+  size_t total_aligned_pages  = (umap_region_length - 1)/umap_page_size + 1;
+  size_t pages_per_server = total_aligned_pages/num_proc;
+  if(rank==(num_proc-1))
+    pages_per_server = total_aligned_pages - pages_per_server*(num_proc-1);
+  
+  size_t aligned_size = umap_page_size * pages_per_server;  
+  void* server_buffer = malloc(aligned_size);  
   if(!server_buffer){
     std::cerr<<" Unable to allocate " << umap_region_length << " bytes on the server";
     return 0;
+  }else{
+    char hostname[256];
+    if( gethostname(hostname, sizeof(hostname)) == 0 ) 
+      cout << "Server " << rank << " on hostname " << hostname << "\n";
   }
   
-  /* initialization function should be user defined*/
+  /* initialization function should be user defined */
   uint64_t *arr = (uint64_t*) server_buffer;
-  size_t num = umap_region_length/sizeof(uint64_t);
-  size_t offset = num*rank;
+  size_t num_elements = aligned_size/sizeof(uint64_t);
+  size_t offset = rank*(total_aligned_pages*umap_page_size/sizeof(uint64_t)/num_proc);
 #pragma omp parallel for
-  for(size_t i=0;i<num;i++)
+  for(size_t i=0;i<num_elements;i++)
     arr[i]=i+offset;
 
   /* Create a network-based datastore */
   /* 0 num_clients leaves the server on */
   Umap::Store* datastore  = new Umap::StoreNetworkServer("a",
 							 server_buffer,
-							 umap_region_length,
-							 num_clients);
+							 aligned_size);
   
   while(1)
     sleep(10);
