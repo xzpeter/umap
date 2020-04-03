@@ -22,6 +22,12 @@ static int client_id=-1;
 static std::map<int, char*> server_str_map;
 static std::map<int, hg_addr_t> server_map;
 
+size_t client_get_resource_size(const char*id)
+{
+  assert(resource_pool.find(id)!=resource_pool.end());
+  return resource_pool[id].rsize;
+}
+
 void print_client_memory_pool()
 {
   for(auto it : resource_pool){
@@ -291,7 +297,7 @@ static void setup_margo_client(){
     }
     server_map[server_id]=server_address;
   }
-  UMAP_LOG(Info, "margo_init done");
+  //UMAP_LOG(Info, "margo_init done");
   
   /* Find the address of this client process */
   hg_addr_t client_address;
@@ -380,17 +386,38 @@ void client_fini(void)
 }
 
 
-int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t offset){
+int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t off){
 
   RemoteResource &obj = resource_pool[id];
-  int server_id = offset/obj.server_stride;
-  offset -= server_id * obj.server_stride;
+  int server_id=-1;
+  off_t offset =off;
+  
+  /* Determine the server and offset on the server */
+  if(obj.server_stride>0){
+    server_id = offset/obj.server_stride;
+    offset -= server_id * obj.server_stride;
+  }else{
+    std::vector<ServerMetadata>& metatable= obj.meta_table;
+    
+    for(auto it : metatable){
+      if(it.offset<=off && off<(it.offset+it.size) ){
+
+	//make sure no page is split over more than one server
+	assert( (off+nbytes)<=(it.offset+it.size)  );
+	server_id = it.server_id;
+	offset = off-it.offset;
+	break;
+      }
+    }
+    assert( server_id>=0 );
+  }
+
+  //UMAP_LOG(Info, id<<" ["<< off <<", "<<nbytes<<"] from server "<< server_id << " [" << offset << ", " <<nbytes<<" ]");
   
   auto it = server_map.find(server_id);
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
 
-  //UMAP_LOG(Info, id<<" [ 0x"<< buf_ptr << ", " << offset << ", " <<nbytes<<" ]");
   
   /* Forward the RPC. umap_client_fwdcompleted_cb will be called
    * when receiving the response from the server

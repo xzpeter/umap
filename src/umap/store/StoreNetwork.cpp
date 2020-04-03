@@ -80,6 +80,11 @@ namespace Umap {
       if( !res ){
 	UMAP_ERROR("Cannot request "<< id << ", rejected by the server ");
       }
+
+      //update information from server
+      if(rsize==0)
+	rsize=client_get_resource_size(id);
+      
     }else{
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     }
@@ -88,7 +93,6 @@ namespace Umap {
   StoreNetworkClient::~StoreNetworkClient()
   {
     /* TODO: thread-safety */
-    UMAP_LOG(Info, "Client "<< client_id <<" deleting: " << id);
     
     /* send a request of 0 byte to the server to signal termination */
     /* TODO: a blocking operation currently */

@@ -560,7 +560,7 @@ void server_init()
     //while (1) {
     //sleep(1);
     //}
-    UMAP_LOG(Info, "Server " << server_id);
+    //UMAP_LOG(Info, "Server " << server_id);
   }
 }
 

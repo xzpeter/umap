@@ -12,5 +12,6 @@ bool client_check_resource(const char*id);
 void client_request_resource(const char* id, size_t rsize);
 int  client_release_resource(const char* id);
 bool client_add_resource(const char*id, size_t rsize);
+size_t client_get_resource_size(const char*id);
 
 #endif
