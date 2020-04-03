@@ -83,8 +83,8 @@ namespace Umap {
 
       //update information from server
       if(rsize==0)
-	rsize=client_get_resource_size(id);
-      
+	rsize=client_get_resource_size(id);      
+
     }else{
       UMAP_ERROR("Cannot create datastore with duplicated name: "<< id);
     }

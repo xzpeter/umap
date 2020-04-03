@@ -418,6 +418,7 @@ int client_read_from_server(const char* id, void *buf_ptr, size_t nbytes, off_t 
   assert( it!=server_map.end());  
   hg_addr_t server_address = it->second;
 
+  //UMAP_LOG(Info, id<<" [ 0x"<< buf_ptr << ", " << offset << ", " <<nbytes<<" ]");
   
   /* Forward the RPC. umap_client_fwdcompleted_cb will be called
    * when receiving the response from the server
