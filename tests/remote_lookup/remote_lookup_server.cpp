@@ -50,10 +50,11 @@ int main(int argc, char **argv)
   size_t umap_page_size = umapcfg_get_umap_page_size();
   size_t total_aligned_pages  = (umap_region_length - 1)/umap_page_size + 1;
   size_t pages_per_server = total_aligned_pages/num_proc;
+  size_t aligned_pages = pages_per_server;
   if(rank==(num_proc-1))
-    pages_per_server = total_aligned_pages - pages_per_server*(num_proc-1);
+    aligned_pages = total_aligned_pages - pages_per_server*(num_proc-1);
   
-  size_t aligned_size = umap_page_size * pages_per_server;  
+  size_t aligned_size = umap_page_size * aligned_pages;  
   void* server_buffer = malloc(aligned_size);  
   if(!server_buffer){
     std::cerr<<" Unable to allocate " << umap_region_length << " bytes on the server";
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
   /* initialization function should be user defined */
   uint64_t *arr = (uint64_t*) server_buffer;
   size_t num_elements = aligned_size/sizeof(uint64_t);
-  size_t offset = rank*(total_aligned_pages*umap_page_size/sizeof(uint64_t)/num_proc);
+  size_t offset = pages_per_server*umap_page_size/sizeof(uint64_t)*rank;
 #pragma omp parallel for
   for(size_t i=0;i<num_elements;i++)
     arr[i]=i+offset;
