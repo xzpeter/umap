@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXE=./tests/remote_region/remote_region
+EXE=./tests/remote_lookup/remote_lookup
 
 KB=1024
 MB=$((1024*KB))
@@ -9,47 +9,51 @@ GB=$((1024*MB))
 numUpdates=100
 numPeriods=100
 
-serverNode=flash3
-clientNode=flash2
-#"flash3,flash5,flash6,flash7,flash8,flash9,flash10,flash11,flash12,flash13,flash14"
-
-for g in 128 #16 64 128
+for g in 1 #128 #16 64 128
 do
     regionSize=$(( GB * g ))
 
     # start the server on one compute node
     # start clients on a separate compute node
-    rm -rf serverfile
-    export OMP_NUM_THREADS=24
-    srun --nodelist=${serverNode} -n 1 ${EXE}_server $regionSize 0 &
-
-    while [ ! -f serverfile ]; do
-	sleep 3
-    done
-
-    for cacheRatio in 4 #2 1 
+    for numServerNodes in 1
     do
-	bufSize=$(( regionSize / cacheRatio ))
-    
-	for k in  512 1024 2048 #256 128 64 32 16 8 4
+	for numServerProcPerNode in 1 2 4 8
 	do
-	    psize=$(( KB * k ))
-	    pages=$(( regionSize / psize))
-	    bufPages=$(( bufSize/psize ))
+	    rm -rf serverfile
+	    export OMP_NUM_THREADS=$((48/numServerProcPerNode))
+	    srun --ntasks-per-node=$numServerProcPerNode -N $numServerNodes ${EXE}_server $regionSize &
 
-	    for numNodes in 1 #2 3 4 5 6 7 8 9 10 11
+	    # start clients after the server has published their ports
+	    while [ ! -f serverfile ]; do
+		sleep 3
+	    done
+
+	    for k in  1024 #256 64 16 4
 	    do
-		for numProcPerNode in 3 6 12 24
+		psize=$(( KB * k ))
+		    
+		for numClientNodes in 1 #4 3 2 1
 		do
-		    numThreads=$(( 24/numProcPerNode ))
-		    cmd="UMAP_PAGESIZE=$psize UMAP_BUFSIZE=$bufPages OMP_NUM_THREADS=$numThreads srun --nodelist=${clientNode} --ntasks-per-node=$numProcPerNode -N $numNodes ${EXE}_client $pages $numUpdates $numPeriods"
+		for numClientProcPerNode in 1 2 4 8 16
+		do
+		    numClientThreads=$(( 48/numClientProcPerNode ))
+		    cmd="UMAP_PAGESIZE=$psize OMP_NUM_THREADS=$numClientThreads srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client $regionSize $numUpdates $numPeriods"
 		    echo $cmd
 		    eval $cmd
+			
+		    for cacheRatio in 4 #2 1 
+		    do
+			pages=$(( regionSize / psize))
+			bufPages=$(( pages/cacheRatio ))
+			cmd="UMAP_PAGESIZE=$psize UMAP_BUFSIZE=$bufPages OMP_NUM_THREADS=$numThreads srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client $regionSize $numUpdates $numPeriods"
+			echo $cmd
+			eval $cmd
+		    done
+		done
 		done
 	    done
 	done
     done
-    
     pkill srun
     sleep 3
     
