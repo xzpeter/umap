@@ -53,9 +53,9 @@ void* umap_network(const char*	id
     /*Client */
     ds = new Umap::StoreNetworkClient(id, region_size);
     return Umap::umap_ex(region_addr, region_size, PROT_READ, UMAP_PRIVATE, -1, 0, ds);    
-  }
-  
+  }  
 }
+
 
 int
 uunmap(void*  addr, uint64_t length)

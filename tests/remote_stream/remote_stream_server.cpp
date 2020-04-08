@@ -55,7 +55,7 @@ int main(int argc, char **argv)
   size_t total_aligned_pages  = (array_length - 1)/umap_page_size + 1;
   size_t pages_per_server = total_aligned_pages/num_proc;
   if(rank==(num_proc-1))
-    pages_per_server = total_aligned_pages - pages_per_server*(num_proc-1);
+    pages_per_server = total_aligned_pages - pages_per_server*rank;
   
   size_t aligned_size = umap_page_size * pages_per_server;  
   void* arr_a = malloc(aligned_size);
@@ -69,7 +69,8 @@ int main(int argc, char **argv)
   uint64_t *arr0 = (uint64_t*) arr_a;
   uint64_t *arr1 = (uint64_t*) arr_b;
   size_t num = aligned_size/sizeof(uint64_t);
-  size_t offset = rank*(total_aligned_pages*umap_page_size/sizeof(uint64_t)/num_proc);  
+  assert( aligned_size%sizeof(uint64_t) == 0);
+  size_t offset = rank*(total_aligned_pages/num_proc*umap_page_size/sizeof(uint64_t));  
 #pragma omp parallel for
   for(size_t i=0;i<num;i++){
     arr0[i]=offset+i;

@@ -121,12 +121,15 @@ int main(int argc, char **argv)
   /* End of Main Loop */
 
   size_t time = timing_update.count()/num_repeats;
-  size_t bytes= array_length*2;
+  size_t bytes= array_length*3;
   cout << "Rank " << rank
        << " Bandwidth [MB/s] : " << bytes*1.0/time 
        << " Ave. time [us] : "   << time
        << " c["<< (id_st+id_end)/2 <<"]="<< c[(id_st+id_end)/2] <<std::endl;
-  assert( c[(id_st+id_end)/2] == 2*((id_st+id_end)/2));
+  if(c[(id_st+id_end)/2] != (id_st+id_end) ){
+    cout << "Error: Client " << rank << " \n";
+  }
+  assert( c[(id_st+id_end)/2] == (id_st+id_end) ) ;
   MPI_Barrier(MPI_COMM_WORLD);
   
   /* Unmap file */
