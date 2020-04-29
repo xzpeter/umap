@@ -20,6 +20,7 @@ To install these libraries, run setup.sh and record the install path as $MARGO_R
 
 .. code-block:: bash
 
+  $ export UMAP_DEP_ROOT=<Place to install the Margo libraries>
   $ ./setup.sh
   
 ---------------------------
@@ -31,7 +32,7 @@ The following lines should get you up and running:
 
   $ git clone https://github.com/LLNL/umap.git
   $ mkdir build && cd build
-  $ cmake3 -DCMAKE_INSTALL_PREFIX="<Place to install umap>" -DMARGO_ROOT="<Place of Margo installation>" ..
+  $ cmake3 -DCMAKE_INSTALL_PREFIX="<Place to install umap>" -DMARGO_ROOT="$UMAP_DEP_ROOT" ..
   $ make
   $ make install
 
