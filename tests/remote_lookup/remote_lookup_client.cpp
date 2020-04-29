@@ -53,17 +53,19 @@ int main(int argc, char **argv)
 
   
   /*Create a network-based datastore*/
-  Umap::Store* datastore  = new Umap::StoreNetworkClient("a", umap_region_length);
-
   /* map to the remote memory region */
   auto timing_map_st = high_resolution_clock::now();
-  void* region_addr = NULL; //to be set by umap
+
+  /*  Umap::Store* datastore  = new Umap::StoreNetworkClient("a", umap_region_length);
+  void* region_addr = NULL;
   int   prot        = PROT_READ;
   int   flags       = UMAP_PRIVATE;
   int   fd          = -1;
   off_t offset      = 0;
-  void* base_addr = umap_ex(region_addr, umap_region_length, prot, flags, fd, offset, datastore);
+  void* base_addr   = umap_ex(region_addr, umap_region_length, prot, flags, fd, offset, datastore);*/
+  void* base_addr   = umap_network("a", NULL, umap_region_length);
   auto timing_map_end = high_resolution_clock::now();
+  
   if ( base_addr == UMAP_FAILED ) {
     int eno = errno;
     std::cerr << "Failed to umap network" << ": " << strerror(eno) << std::endl;
@@ -125,8 +127,8 @@ int main(int argc, char **argv)
   }
 
   /* Free the network dastore */
-  delete datastore;
-
+  //delete datastore;
+  
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
   

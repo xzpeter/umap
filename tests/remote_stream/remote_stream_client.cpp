@@ -56,7 +56,9 @@ int main(int argc, char **argv)
 
   /* Start registering network-based datastores */
   /* successful only if the server has published the object */
-  Umap::Store* ds0 = new Umap::StoreNetworkClient("arr_a", array_length);
+  auto timing_map_st = high_resolution_clock::now();
+
+  /*  Umap::Store* ds0 = new Umap::StoreNetworkClient("arr_a", array_length);
   assert(ds0!=NULL);
   cout << "Rank "<< rank << " registered arr_a" << "\n";
 
@@ -64,15 +66,13 @@ int main(int argc, char **argv)
   assert(ds1!=NULL);
   cout << "Rank "<< rank << " registered arr_b" << "\n";
   MPI_Barrier(MPI_COMM_WORLD);
-  /* End of registering remote memory objects */
     
-  /* map to the remote memory region */
-  void* region_addr = NULL; //to be set by umap
+  // map to the remote memory region
+  void* region_addr = NULL;
   int   prot        = PROT_READ;
   int   flags       = UMAP_PRIVATE;
-  int   fd          = -1; //insignificant
-  off_t offset      = 0;  //insignificant 
-  auto timing_map_st = high_resolution_clock::now();
+  int   fd          = -1;
+  off_t offset      = 0;
   void* arr_a = umap_ex(region_addr,
 			array_length,
 			prot, flags,
@@ -83,7 +83,14 @@ int main(int argc, char **argv)
 			prot, flags,
 			fd, offset,
 			ds1);
-  auto timing_map_end = high_resolution_clock::now();  
+*/
+  
+  void* arr_a = umap_network("arr_a", NULL, array_length);
+  void* arr_b = umap_network("arr_b", NULL, array_length);
+
+  auto timing_map_end = high_resolution_clock::now();
+
+  
   if ( arr_a == UMAP_FAILED || arr_b == UMAP_FAILED) {
     std::cerr << "Failed to umap network-based datastore " << std::endl;
     return 0;
@@ -133,15 +140,15 @@ int main(int argc, char **argv)
   MPI_Barrier(MPI_COMM_WORLD);
   
   /* Unmap file */
-  if ( uunmap(arr_a, array_length)<0 || uunmap(arr_b, array_length)<0 ) {
+  if ( uunmap(arr_a, array_length)<0  || uunmap(arr_b, array_length)<0 ) {
     int eno = errno;
     std::cerr << "Failed to unmap network datastore: " << strerror(eno) << endl;
     return -1;
   }
 
   /* Free the network dastore */
-  delete ds0;
-  delete ds1;
+  //delete ds0;
+  //delete ds1;
   free(c);
 
 
