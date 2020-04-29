@@ -16,25 +16,14 @@ including a hello world program for userfaultfd based upon code from the
 
 ## Quick Start
 
-*Building umap* is trivial. In the root directory of the repo
-
-```bash
-mkdir build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX = <where you want the sofware> ..
-make install
-```
-
-## Quick Build Network-based Umap
-
-*Install the dependency libraries by running
+Install the dependency libraries by running
 
 ```bash
 export UMAP_DEP_ROOT=<Place to install the Margo libraries>
 ./setup.sh
 ```
 
-*In the root directory of the repo
+In the root directory of the UMap repo
 
 ```bash
 mkdir build
@@ -46,7 +35,7 @@ make install
 The default for cmake is to build a Debug version of the software.  If you
 would like to build an optimized (-O3) version, simply run 
 ```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<install-dir> ..
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<where you want the sofware>  -DMARGO_ROOT=$UMAP_DEP_ROOT ..
 ```
 
 ## Documentation
