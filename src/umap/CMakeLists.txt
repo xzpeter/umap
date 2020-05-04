@@ -20,10 +20,6 @@ set(umapheaders
       WorkQueue.hpp
       WorkerPool.hpp
       store/StoreFile.h
-      store/StoreNetwork.h
-      store/rpc/rpc_server.hpp
-      store/rpc/rpc_client.hpp
-      store/rpc/rpc_util.hpp
       store/Store.hpp
       util/Exception.hpp
       util/Logger.hpp
@@ -40,19 +36,29 @@ set(umapsrc
     umap.cpp
     store/Store.cpp
     store/StoreFile.cpp
-    store/StoreNetwork.cpp
-    store/rpc/rpc_server.cpp
-    store/rpc/rpc_client.cpp
     util/Exception.cpp
     util/Logger.cpp
     ${umapheaders})
 
 find_package(Threads REQUIRED)
 
-find_package(MPI REQUIRED)
-include_directories(${MPI_INCLUDE_PATH})
-
 if (MARGO_ROOT)
+    set(networkheaders
+	store/StoreNetwork.h
+	store/rpc/rpc_server.hpp
+	store/rpc/rpc_client.hpp
+	store/rpc/rpc_util.hpp
+	)
+    set(networksrcs
+	store/StoreNetwork.cpp
+	store/rpc/rpc_server.cpp
+	store/rpc/rpc_client.cpp
+    	)
+    list(APPEND umapheaders ${networkheaders})
+    list(APPEND umapsrc ${networkheaders} ${networksrcs})
+
+    find_package(MPI REQUIRED)
+    include_directories(${MPI_INCLUDE_PATH})
     include_directories(${MARGO_ROOT}/include)
     find_library(LIBMARGO NAMES margo PATHS ${MARGO_ROOT}/lib)
     if (LIBMARGO)

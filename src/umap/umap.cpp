@@ -37,6 +37,7 @@ umap(
   return Umap::umap_ex(region_addr, region_size, prot, flags, fd, 0, nullptr);
 }
 
+#ifdef MARGO_ROOT
 void* umap_network(const char*	id
 		   , void* region_addr
 		   , size_t region_size)
@@ -55,7 +56,7 @@ void* umap_network(const char*	id
     return Umap::umap_ex(region_addr, region_size, PROT_READ, UMAP_PRIVATE, -1, 0, ds);    
   }  
 }
-
+#endif
 
 int
 uunmap(void*  addr, uint64_t length)
