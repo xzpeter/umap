@@ -56,7 +56,8 @@ if (MARGO_ROOT)
     	)
     list(APPEND umapheaders ${networkheaders})
     list(APPEND umapsrc ${networkheaders} ${networksrcs})
-
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMARGO_ROOT")
+    
     find_package(MPI REQUIRED)
     include_directories(${MPI_INCLUDE_PATH})
     include_directories(${MARGO_ROOT}/include)

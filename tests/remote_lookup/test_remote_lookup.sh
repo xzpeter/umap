@@ -6,59 +6,44 @@ KB=1024
 MB=$((1024*KB))
 GB=$((1024*MB))
 
-numUpdates=100
+numUpdates=10000
 numPeriods=100
 
-for g in 128 #16 64 128
+for g in 128
 do
     regionSize=$(( GB * g ))
 
     # start the server on one compute node
     # start clients on a separate compute node
-    for numServerNodes in 2 1 #4 3 2 1
-    do
-	for numServerProcPerNode in 1 2 4 8
-	do
+    for numServerNodes in 2;do
+	for numServerProcPerNode in 4 8;do
 	    rm -rf serverfile
 	    export OMP_NUM_THREADS=$(( 24/numServerProcPerNode ))
-	    cmd="srun --ntasks-per-node=$numServerProcPerNode -N $numServerNodes ${EXE}_server $regionSize & "
+	    cmd="UMAP_PAGESIZE=1048576 srun --ntasks-per-node=$numServerProcPerNode -N $numServerNodes ${EXE}_server $regionSize & "
 	    echo $cmd
 	    eval $cmd
 
 	    # start clients after the server has published their ports
 	    while [ ! -f serverfile ]; do
-		sleep 3
+		sleep 10
 	    done
-
-	    for k in 256 4
-	    do
-		psize=$(( KB * k ))
-		    
-		for numClientNodes in 1 #{1..9..1}
-		do
-		for numClientProcPerNode in 1 2 4 8
-		do
-		    numClientThreads=$(( 24/numClientProcPerNode ))
-		    cmd="UMAP_PAGESIZE=$psize OMP_NUM_THREADS=$numClientThreads srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client $regionSize $numUpdates $numPeriods"
-		    echo ""
-		    echo $cmd
-		    eval $cmd
-			
-	#	    for cacheRatio in 4 #2 1 
-	#	    do
-	#		pages=$(( regionSize / psize))
-	#		bufPages=$(( pages/cacheRatio ))
-	#		cmd="UMAP_PAGESIZE=$psize UMAP_BUFSIZE=$bufPages OMP_NUM_THREADS=$numThreads srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client $regionSize $numUpdates $numPeriods"
-	#		echo $cmd
-		#	eval $cmd
-		    #done
-		done
+	    sleep 10
+	    
+	    for numClientNodes in 4;do
+		for numClientProcPerNode in 1;do
+		    for bufpages in 1048576 2097152 4194304;do
+			psize=$(( 16 * KB ))
+			numClientThreads=$(( 24/numClientProcPerNode ))
+			cmd="UMAP_PAGESIZE=$psize UMAP_BUFSIZE=$bufpages OMP_NUM_THREADS=$numClientThreads srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client $regionSize $numUpdates $numPeriods"
+			echo ""
+			echo $cmd
+			time eval $cmd
+		    done
 		done
 	    done
+	    pkill srun
+	    sleep 3
 	done
-    done
-    pkill srun
-    sleep 3
-    
+    done    
 done
 echo 'Done'
