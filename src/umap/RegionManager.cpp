@@ -85,10 +85,14 @@ RegionManager::removeRegion( char* region )
 	   << ", region_size: " << it->second->size()
 	   << ", number of regions: " << m_active_regions.size()
 	   );
-
-  StoreNetworkServer* ds = dynamic_cast<StoreNetworkServer*>(it->second->store());  
   
-  if(!ds)
+  bool is_network_server = false;
+#ifdef MARGO_ROOT
+  StoreNetworkServer* ds = dynamic_cast<StoreNetworkServer*>(it->second->store());  
+  is_network_server = (ds!=NULL);
+#endif
+  
+  if(!is_network_server)
     m_uffd->unregister_region(it->second);
 
   delete it->second;
@@ -96,7 +100,7 @@ RegionManager::removeRegion( char* region )
 
   m_last_iter = m_active_regions.end();
 
-  if ( !ds && m_active_regions.empty() ) {
+  if ( !is_network_server && m_active_regions.empty() ) {
     delete m_evict_manager; m_evict_manager = nullptr;
     delete m_fill_workers; m_fill_workers = nullptr;
     delete m_uffd; m_uffd = nullptr;
