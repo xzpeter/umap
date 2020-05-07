@@ -53,9 +53,7 @@ namespace Umap {
 
   StoreNetworkServer::~StoreNetworkServer()
   {
-    /* TODO: thread-safety */
-    UMAP_LOG(Info, "Server "<< server_id << " is deleting: " << id);
-    
+    /* TODO: thread-safety */    
     /* Try to remove the new resource */
     int ret = server_delete_resource(id);
     assert( ret==0 );
@@ -130,7 +128,7 @@ namespace Umap {
   }
 
   StoreNetwork::~StoreNetwork()
-  {    
+  {
   }
   
   ssize_t StoreNetwork::read_from_store(char* buf, size_t nbytes, off_t offset)

@@ -106,7 +106,7 @@ void client_request_resource(const char* id, size_t requested_size){
       resource_pool[id].meta_table.emplace_back(offset, out.size, i);
       offset += out.size;
 
-      UMAP_LOG(Info, "Server "<< i <<"/"<<num_servers<<" return size "<< out.size << " for " << id << " total_size="<<offset);
+      //UMAP_LOG(Info, "Server "<< i <<"/"<<num_servers<<" return size "<< out.size << " for " << id << " total_size="<<offset);
 
     }else{
       // if this server cannot provide the resource, skip it
@@ -166,7 +166,7 @@ bool client_add_resource(const char*id,
     return false;  
   }
 
-  print_client_memory_pool();
+  //print_client_memory_pool();
 
   return true;
 }
@@ -183,47 +183,53 @@ int client_release_resource(const char* id){
     return -1;
   }
 
-
-  /* Start informing the server
-  /* TODO: management of the server list
-  int server_id = 0;
-  auto it = server_map.find(server_id);
-  assert( it!=server_map.end());  
-  hg_addr_t server_address = it->second;
+  /* Start informing the server */
+  RemoteResource &obj = resource_pool[id];
+  std::vector<int> server_id_list;
   
-  /* Create a RPC handle 
-  hg_return_t hret;
-  hg_handle_t handle;
-  hret = margo_create(mid,
-		     server_address,
-		     umap_release_rpc_id,
-		     &handle);
-  assert(hret == HG_SUCCESS);
-
-  /* Create input structure
-  umap_release_rpc_in_t in;
-  in.id = strdup(id);
-  
-  /* Forward RPC requst to the server
-  hret = margo_forward(handle, &in);
-  assert(hret == HG_SUCCESS);
-    
-  /* verify the response 
-  /* TODO: should the client wait for the reponse? 
-  umap_release_rpc_out_t out;
-  hret = margo_get_output(handle, &out);
-  assert(hret == HG_SUCCESS);
-  
-  if( out.ret==RPC_RESPONSE_RELEASE){
-    print_client_memory_pool();
+  if(obj.server_stride>0){
+    for(auto s=0; s<obj.num_servers; s++)
+      server_id_list.push_back(s);
   }else{
-    UMAP_ERROR("the server failed to release "<<id);
-    return -1;
+    std::vector<ServerMetadata>& metatable= obj.meta_table;
+    for(auto it : metatable){
+      server_id_list.push_back(it.server_id);
+    }
   }
+
+  for(auto server_id : server_id_list){
+    auto it = server_map.find(server_id);
+    assert( it!=server_map.end());  
+    hg_addr_t server_address = it->second;
+  
+    /* Create a RPC handle */
+    hg_return_t hret;
+    hg_handle_t handle;
+    hret = margo_create(mid,
+			server_address,
+			umap_release_rpc_id,
+			&handle);
+    assert(hret == HG_SUCCESS);
+
+    /* Create input structure */
+    umap_release_rpc_in_t in;
+    in.id = strdup(id);
+  
+    /* Forward RPC requst to the server */
+    hret = margo_forward(handle, &in);
+    assert(hret == HG_SUCCESS);
+    
+    /* verify the response */
+    /* TODO: should the client wait for the reponse? */
+    umap_release_rpc_out_t out;
+    hret = margo_get_output(handle, &out);
+    assert(hret == HG_SUCCESS);
+    assert( out.ret==RPC_RESPONSE_RELEASE);
+  } 
   /* End of informing the server*/
 
   resource_pool.erase(id);
-
+  
   /* TODO: shutdown */
   if(resource_pool.size()==0){
     UMAP_LOG(Info, "shuting down Client " << client_id);

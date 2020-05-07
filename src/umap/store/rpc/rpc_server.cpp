@@ -73,6 +73,7 @@ int server_delete_resource(const char* id)
   }
 
   while( (it->second).num_clients!=0 ){
+    UMAP_LOG(Info, "waiting for clients to disconnect ");
     sleep(3);
   }
   resource_pool.erase(it);
@@ -352,7 +353,7 @@ static int umap_server_request_rpc(hg_handle_t handle)
   if(ret != HG_SUCCESS){
     UMAP_ERROR("failed to get rpc intput");
   }
-  UMAP_LOG(Info, "Server "<<server_id<<" received a request ["<<in.id<<", "<<in.size<<"]" );
+  //UMAP_LOG(Info, "Server "<<server_id<<" received a request ["<<in.id<<", "<<in.size<<"]" );
 
   
   umap_request_rpc_out_t output;
@@ -415,7 +416,6 @@ static int umap_server_release_rpc(hg_handle_t handle)
   if(ret != HG_SUCCESS){
     UMAP_ERROR("failed to get rpc intput");
   }
-  UMAP_LOG(Info, " received a release "<<in.id );
   
   umap_release_rpc_out_t output;
 
@@ -432,7 +432,7 @@ static int umap_server_release_rpc(hg_handle_t handle)
   }else{
     output.ret  = RPC_RESPONSE_GENERAL_ERROR;
     UMAP_LOG(Info, in.id << " has not been published by the Server");
-    print_server_memory_pool();
+    //print_server_memory_pool();
   }
 
   /* Inform the client */

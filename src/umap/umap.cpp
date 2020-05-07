@@ -48,6 +48,8 @@ void* umap_network(const char*	id
 
     /* Server */
     ds = new Umap::StoreNetworkServer(id, region_addr, region_size);
+    auto& rm = Umap::RegionManager::getInstance();
+    rm.addServerRegion(ds, (char*)region_addr, region_size);
     return region_addr;
   }else{
 
@@ -70,11 +72,10 @@ uunmap(void*  addr, uint64_t length)
 
 
 int umap_flush(){
-  
-  UMAP_LOG(Debug,  "umap_flush " );
-  
   return Umap::RegionManager::getInstance().flush_buffer();
-
+}
+int umap_evict(){
+  return Umap::RegionManager::getInstance().evict_buffer();
 }
 
 

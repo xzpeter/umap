@@ -71,7 +71,8 @@ int uunmap(
 );
 
 int umap_flush(); 
-
+int umap_evict();
+  
 struct umap_prefetch_item {
   void* page_base_addr;
 };
