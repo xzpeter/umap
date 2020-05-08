@@ -15,6 +15,7 @@ including a hello world program for userfaultfd based upon code from the
 [userfaultfd-hello-world project](http://noahdesu.github.io/2016/10/10/userfaultfd-hello-world.html).
 
 ## Quick Start
+The network-based UMap handler uses the Mercury RPC framework (https://github.com/mercury-hpc/mercury), the Argobots threading framework (https://github.com/pmodels/argobots), and the Margo wrapper (https://xgitlab.cels.anl.gov/sds/margo.git)
 
 Install the dependency libraries by running
 
