@@ -11,12 +11,16 @@ Dependencies
 ^^^^^^^^^^^^^
 At a minimum, cmake 3.5.1 or greater is required for building umap.
 
-The network-based datastore requires external libraries from
-  $ https://github.com/pmodels/argobots.git
-  $ https://github.com/mercury-hpc/mercury.git
-  $ https://xgitlab.cels.anl.gov/sds/margo.git
+To enable the network-based datastore, the following external libraries are required.
 
-To install these libraries, run setup.sh and record the install path as $MARGO_ROOT:  
+  1. The Mercury RPC library (https://github.com/mercury-hpc/mercury.git)
+  
+  2. The Argobots threading framework (The https://github.com/pmodels/argobots.git)
+  
+  3. The Margo wrapper library (https://xgitlab.cels.anl.gov/sds/margo.git)
+
+You can either install each of the above libraries manually, or run setup.sh to setup automatically.
+Define UMAP_DEP_ROOT if you want to install the libraries in a custom path:  
 
 .. code-block:: bash
 
@@ -26,11 +30,12 @@ To install these libraries, run setup.sh and record the install path as $MARGO_R
 ---------------------------
 UMAP Build and Installation
 ---------------------------
-The following lines should get you up and running:
+Clone from the UMap git repository and set MARGO_ROOT to where you installed the dependency libraries:
 
 .. code-block:: bash
 
   $ git clone https://github.com/LLNL/umap.git
+  $ git checkout remote_region
   $ mkdir build && cd build
   $ cmake3 -DCMAKE_INSTALL_PREFIX="<Place to install umap>" -DMARGO_ROOT="$UMAP_DEP_ROOT" ..
   $ make
