@@ -60,3 +60,38 @@ The interface to umap mirrors that of mmap(2) as shown:
 The following code is a simple example of how one may use umap:
 
 .. literalinclude:: ../../examples/psort.cpp
+
+-------------------
+Network-based Usage
+-------------------
+
+The following code demonstrates how to create a network-based datastore on a server process:
+
+.. code-block:: c
+
+  Umap::Store* datastore  = new Umap::StoreNetworkServer("a", server_mem_addr, umap_region_length);
+  
+The following code demonstrates how to umap a network-based datastore on a client process:
+
+.. code-block:: c
+
+  void* base_addr   = umap_network("a", NULL, umap_region_length);  
+  if ( base_addr == UMAP_FAILED ) {
+    int eno = errno;
+    std::cerr << "Failed to umap network" << ": " << strerror(eno) << std::endl;
+    return 0;
+  }
+  
+To run the application on a cluster, first start the server processes.
+
+.. code-block:: console
+
+    srun --ntasks-per-node=$numServerProcPerNode -N $numServerNodes ${EXE}_server & 
+  
+Then start the client processes after the server has published its connection information in serverfile.
+
+.. code-block:: console
+
+    srun --ntasks-per-node=$numClientProcPerNode -N $numClientNodes ${EXE}_client 
+    
+Tests of the network based handler can be find in <root>/tests/remote_xx folders    
