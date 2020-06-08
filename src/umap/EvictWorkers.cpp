@@ -47,8 +47,17 @@ void EvictWorkers::EvictWorker( void )
       continue;
     
     if (w.type != Umap::WorkItem::WorkType::FAST_EVICT) {
-      if (madvise(pd->page, page_size, MADV_DONTNEED) == -1)
-        UMAP_ERROR("madvise failed: " << errno << " (" << strerror(errno) << ")");
+        if (huge_fd == -1) {
+            if (madvise(pd->page, page_size, MADV_DONTNEED) == -1)
+                UMAP_ERROR("madvise failed: " << errno << " (" << strerror(errno) << ")");
+        } else {
+            int ret = fallocate(huge_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+                                pd->page - huge_addr, page_size);
+            if (ret) {
+                perror("==> fallocate() failed: ");
+                exit(1);
+            }
+        }
     }
 
     UMAP_LOG(Debug, "Removing page: " << w.page_desc);

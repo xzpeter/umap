@@ -115,7 +115,13 @@ RegionManager::RegionManager()
 
   m_last_iter = m_active_regions.end();
 
-  m_system_page_size = sysconf(_SC_PAGESIZE);
+  // HACK: use 2M huge page or shmem
+  if (!strcmp(umapcfg_get_backend(), "hugetlb") ||
+      !strcmp(umapcfg_get_backend(), "hugetlb_share"))
+      m_system_page_size = 2097152;
+  else
+      m_system_page_size = sysconf(_SC_PAGESIZE);
+  printf("==> Setting system page size to %llu\n", m_system_page_size);
 
   const uint64_t MAX_FAULT_EVENTS = 256;
   uint64_t env_value = 0;

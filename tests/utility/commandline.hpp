@@ -59,6 +59,7 @@ static void usage(char* pname)
   << " UMAP_PAGE_EVICTORS(env)- currently: " << umapcfg_get_num_evictors() << " evictors\n"
   << " UMAP_BUFSIZE(env)      - currently: " << umapcfg_get_max_pages_in_buffer() << " pages\n"
   << " UMAP_PAGESIZE(env)     - currently: " << umapcfg_get_umap_page_size() << " bytes\n"
+  << " UMAP_BACKEND(env)      - currently: " << umapcfg_get_backend() << "\n"
   ;
   exit(1);
 }

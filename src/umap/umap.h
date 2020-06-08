@@ -78,6 +78,10 @@ uint64_t umapcfg_get_max_pages_in_buffer( void );
 uint64_t umapcfg_get_read_ahead( void );
 int      umapcfg_get_evict_low_water_threshold( void );
 int      umapcfg_get_evict_high_water_threshold( void );
+char * umapcfg_get_backend( void );
+
+extern int huge_fd;
+extern char *huge_addr;
 
 #ifdef __cplusplus
 }

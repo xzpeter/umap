@@ -116,6 +116,62 @@ umapcfg_get_max_fault_events( void )
   return Umap::RegionManager::getInstance().get_max_fault_events();
 }
 
+char *
+umapcfg_get_backend( void )
+{
+    return getenv("UMAP_BACKEND") ?: (char *)"";
+}
+
+int huge_fd = -1;
+char *huge_addr;
+
+static int setup_hugetlb_fd(uint64_t size)
+{
+    const char *fname;
+    const char *fname_hugetlb = "/dev/hugepages/umap-hugetlbfs-backend";
+    const char *fname_shmem = "/dev/shm/umap-shmem-backend";
+    char *backend = umapcfg_get_backend();
+    int flags;
+
+    // HACK: only allow one umap; enough for running umapsort
+    assert(huge_fd == -1);
+
+    if (!strcmp(backend, "shmem")) {
+        fname = fname_shmem;
+        flags = MAP_SHARED;
+    } else if (!strcmp(backend, "hugetlb")) {
+        fname = fname_hugetlb;
+        flags = MAP_HUGETLB | MAP_PRIVATE;
+    } else if (!strcmp(backend, "hugetlb_share")) {
+        fname = fname_hugetlb;
+        flags = MAP_HUGETLB | MAP_SHARED;
+    } else if (!strcmp(backend, "anon")) {
+        flags = MAP_ANONYMOUS | MAP_PRIVATE;
+        return flags;
+    } else {
+        printf("Unknown backend: %s.  Set UMAP_BACKEND with "
+               "'anon|shmem|hugetlb|hugetlb_share'\n", backend);
+        exit(1);
+    }
+
+    unlink(fname);
+    huge_fd = open(fname, O_CREAT | O_RDWR, 0644);
+
+    if (huge_fd < 0) {
+        printf("open file %s failed\n", fname);
+        exit(1);
+    }
+
+    if (ftruncate(huge_fd, size)) {
+        printf("ftruncate for file failed\n");
+        exit(1);
+    }
+
+    printf("==> Backend file %s created.\n", fname);
+
+    return flags;
+}
+
 namespace Umap {
   // A global variable to ensure thread-safety
   std::mutex g_mutex;
@@ -181,13 +237,18 @@ umap_ex(
   //
   uint64_t mmap_size = region_size + umap_psize;
 
+  // HACK: Ignore the flags passed in
+  flags = setup_hugetlb_fd(mmap_size);
+  printf("==> mmaped region size: 0x%lx\n", mmap_size);
   void* mmap_region = mmap(region_addr, mmap_size,
-                        prot, flags | (MAP_ANONYMOUS | MAP_NORESERVE), -1, 0);
+                        prot, (flags | MAP_NORESERVE), huge_fd, 0);
 
   if (mmap_region == MAP_FAILED) {
     UMAP_ERROR("mmap failed: " << strerror(errno));
     return UMAP_FAILED;
   }
+  assert(huge_addr == 0);
+  huge_addr = (char *)mmap_region;
   uint64_t umap_size = region_size;
   void* umap_region;
   umap_region = (void*)((uint64_t)mmap_region + umap_psize - 1);
