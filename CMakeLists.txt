@@ -26,6 +26,7 @@ configure_file(
   ${PROJECT_BINARY_DIR}/src/umap/config.h)
 
 include_directories ( "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/src")
+include_directories ( "~/git/linux/usr/include" )
 
 add_subdirectory(src)
 
