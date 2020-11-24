@@ -362,6 +362,8 @@ Buffer::Buffer( void )
 
   m_evict_low_water = apply_int_percentage(m_rm.get_evict_low_water_threshold(), m_size);
   m_evict_high_water = apply_int_percentage(m_rm.get_evict_high_water_threshold(), m_size);
+  printf("EVICT_LOW_WATER: %lu\n", m_evict_low_water);
+  printf("EVICT_HIGH_WATER: %lu\n", m_evict_high_water);
 }
 
 Buffer::~Buffer( void ) {
