@@ -40,6 +40,9 @@ umap(
 int
 uunmap(void*  addr, uint64_t length)
 {
+    // there seems to be a bug in uunmap path to crash; simplify this so we
+    // never flush cache onto the file
+    exit(0);
   UMAP_LOG(Debug, "addr: " << addr << ", length: " << length);
   auto& rm = Umap::RegionManager::getInstance();
   rm.removeRegion((char*)addr);
