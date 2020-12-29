@@ -60,7 +60,7 @@ void EvictWorkers::EvictWorker( void )
         }
     }
 
-    UMAP_LOG(Debug, "Removing page: " << w.page_desc);
+    UMAP_LOG(Debug, "Removing page of addr: " << (void *)(w.page_desc->page));
     m_buffer->mark_page_as_free(w.page_desc);
   }
 }
